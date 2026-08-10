@@ -34,4 +34,15 @@ export const config = {
   timezone: process.env.TIMEZONE ?? "Asia/Hong_Kong",
   reminderTime: parseReminderTime(process.env.REMINDER_TIME ?? "20:00"),
   dbPath: process.env.DB_PATH ?? "./data/salawat.db",
+
+  // Mini App backend config
+  port: Number(process.env.PORT) || 3000,
+  corsOrigin: process.env.CORS_ORIGIN ?? "*",
+  // Real HTTPS URL of the deployed Mini App (Vercel), used for the chat menu button.
+  // Placeholder until the frontend is deployed — update in Railway and redeploy.
+  miniAppUrl: process.env.MINI_APP_URL ?? "https://example.com/REPLACE_WITH_VERCEL_URL",
+  // t.me deep link used for the reminder's inline button (works without a real HTTPS Mini App URL).
+  miniAppDeepLink: process.env.MINI_APP_DEEP_LINK ?? "https://t.me/salawat_challenge_bot/challenge",
+  // Max age (seconds) a Telegram initData payload is accepted before being treated as stale/replayed.
+  initDataMaxAgeSeconds: Number(process.env.INIT_DATA_MAX_AGE_SECONDS) || 86_400,
 };

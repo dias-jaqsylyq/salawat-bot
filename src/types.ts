@@ -23,6 +23,3 @@ export interface DateParts {
   month: number;
   day: number;
 }
-
-/** Conversation-scoped session data used by @grammyjs/conversations. */
-export interface SessionData {}

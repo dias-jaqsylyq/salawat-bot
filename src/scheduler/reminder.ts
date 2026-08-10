@@ -1,11 +1,12 @@
 import cron from "node-cron";
-import type { Bot } from "grammy";
+import { InlineKeyboard, type Bot } from "grammy";
 import { config } from "../config.js";
 import { getAllUsers } from "../db/repository.js";
 import { hasChallengeEnded } from "../utils/challenge.js";
 import type { MyContext } from "../context.js";
 
-const REMINDER_TEXT = "🌙 Don't forget today's salawat! Log it with /salawat <number>";
+const REMINDER_TEXT = "🌙 Don't forget today's salawat! Tap below to log it.";
+const REMINDER_KEYBOARD = new InlineKeyboard().url("Log Salawat", config.miniAppDeepLink);
 
 async function sendDailyReminders(bot: Bot<MyContext>) {
   if (hasChallengeEnded()) return;
@@ -13,7 +14,9 @@ async function sendDailyReminders(bot: Bot<MyContext>) {
   const users = getAllUsers();
   for (const user of users) {
     try {
-      await bot.api.sendMessage(user.telegram_id, REMINDER_TEXT);
+      await bot.api.sendMessage(user.telegram_id, REMINDER_TEXT, {
+        reply_markup: REMINDER_KEYBOARD,
+      });
     } catch (err) {
       console.error(`Failed to send reminder to user ${user.telegram_id} (${user.nickname}):`, err);
     }
