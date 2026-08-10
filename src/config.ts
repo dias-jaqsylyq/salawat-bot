@@ -19,18 +19,41 @@ function parseDateParts(name: string, value: string): DateParts {
   return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
 }
 
+function toEpochDay(parts: DateParts): number {
+  return Date.UTC(parts.year, parts.month - 1, parts.day) / 86_400_000;
+}
+
 function parseReminderTime(value: string): { hour: number; minute: number } {
   const match = /^(\d{1,2}):(\d{2})$/.exec(value);
   if (!match) {
     throw new Error(`Invalid REMINDER_TIME: "${value}" (expected HH:mm)`);
   }
-  return { hour: Number(match[1]), minute: Number(match[2]) };
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    throw new Error(`Invalid REMINDER_TIME: "${value}" (hour must be 0–23, minute 0–59)`);
+  }
+  return { hour, minute };
 }
+
+const challengeStartDate = parseDateParts("CHALLENGE_START_DATE", required("CHALLENGE_START_DATE"));
+const challengeEndDate = parseDateParts("CHALLENGE_END_DATE", required("CHALLENGE_END_DATE"));
+
+if (toEpochDay(challengeStartDate) > toEpochDay(challengeEndDate)) {
+  throw new Error(
+    `CHALLENGE_START_DATE must be on or before CHALLENGE_END_DATE (got start after end)`
+  );
+}
+
+/** Per-request log count ceiling (friend-group sanity cap). */
+export const MAX_LOG_COUNT = 100_000;
+/** Registration goal ceiling (friend-group sanity cap). */
+export const MAX_GOAL = 100_000_000;
 
 export const config = {
   botToken: required("BOT_TOKEN"),
-  challengeStartDate: parseDateParts("CHALLENGE_START_DATE", required("CHALLENGE_START_DATE")),
-  challengeEndDate: parseDateParts("CHALLENGE_END_DATE", required("CHALLENGE_END_DATE")),
+  challengeStartDate,
+  challengeEndDate,
   timezone: process.env.TIMEZONE ?? "Asia/Hong_Kong",
   reminderTime: parseReminderTime(process.env.REMINDER_TIME ?? "20:00"),
   dbPath: process.env.DB_PATH ?? "./data/salawat.db",

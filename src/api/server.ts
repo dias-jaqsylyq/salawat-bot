@@ -14,6 +14,10 @@ export function createApiServer() {
   app.use(cors({ origin }));
   app.use(express.json());
 
+  app.get("/health", (_req: Request, res: Response) => {
+    res.json({ ok: true });
+  });
+
   app.post("/api/register", telegramAuth, registerRoute);
   app.post("/api/log", telegramAuth, logRoute);
   app.get("/api/progress", telegramAuth, progressRoute);

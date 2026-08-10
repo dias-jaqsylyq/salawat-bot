@@ -1,5 +1,7 @@
 import type { Request, Response } from "express";
+import { MAX_GOAL } from "../../config.js";
 import { createUser, getUserByTelegramId } from "../../db/repository.js";
+import { hasChallengeEnded, hasChallengeStarted } from "../../utils/challenge.js";
 
 export function registerRoute(req: Request, res: Response) {
   const { nickname, goal } = req.body ?? {};
@@ -8,8 +10,17 @@ export function registerRoute(req: Request, res: Response) {
     res.status(400).json({ success: false, error: "invalid_nickname" });
     return;
   }
-  if (typeof goal !== "number" || !Number.isInteger(goal) || goal <= 0) {
+  if (typeof goal !== "number" || !Number.isInteger(goal) || goal <= 0 || goal > MAX_GOAL) {
     res.status(400).json({ success: false, error: "invalid_goal" });
+    return;
+  }
+
+  if (!hasChallengeStarted()) {
+    res.status(403).json({ success: false, error: "challenge_not_started" });
+    return;
+  }
+  if (hasChallengeEnded()) {
+    res.status(403).json({ success: false, error: "challenge_ended" });
     return;
   }
 

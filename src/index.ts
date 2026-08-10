@@ -7,7 +7,11 @@ import { createApiServer } from "./api/server.js";
 const bot = createBot();
 
 startReminderScheduler(bot);
-await setupMenuButton(bot);
+try {
+  await setupMenuButton(bot);
+} catch (err) {
+  console.error("Failed to set chat menu button (continuing without it):", err);
+}
 
 createApiServer().listen(config.port, () => {
   console.log(`API server listening on port ${config.port}`);

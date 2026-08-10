@@ -28,9 +28,20 @@ export function getDaysLeft(now: Date = new Date()): number {
   return Math.max(0, daysLeft);
 }
 
+/** True once today's date in TIMEZONE is on or after CHALLENGE_START_DATE. */
+export function hasChallengeStarted(now: Date = new Date()): boolean {
+  const today = getTodayInTimezone(config.timezone, now);
+  return toEpochDay(today) >= toEpochDay(config.challengeStartDate);
+}
+
 export function hasChallengeEnded(now: Date = new Date()): boolean {
   const today = getTodayInTimezone(config.timezone, now);
   return toEpochDay(today) > toEpochDay(config.challengeEndDate);
+}
+
+/** Inclusive window: started and not yet past the end date. */
+export function isChallengeActive(now: Date = new Date()): boolean {
+  return hasChallengeStarted(now) && !hasChallengeEnded(now);
 }
 
 export function getPercentComplete(total: number, goal: number): number {
