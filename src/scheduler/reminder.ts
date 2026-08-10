@@ -2,14 +2,14 @@ import cron from "node-cron";
 import { InlineKeyboard, type Bot } from "grammy";
 import { config } from "../config.js";
 import { getAllUsers } from "../db/repository.js";
-import { hasChallengeEnded } from "../utils/challenge.js";
+import { isChallengeActive } from "../utils/challenge.js";
 import type { MyContext } from "../context.js";
 
 const REMINDER_TEXT = "🌙 Don't forget today's salawat! Tap below to log it.";
 const REMINDER_KEYBOARD = new InlineKeyboard().url("Log Salawat", config.miniAppDeepLink);
 
 async function sendDailyReminders(bot: Bot<MyContext>) {
-  if (hasChallengeEnded()) return;
+  if (!isChallengeActive()) return;
 
   const users = getAllUsers();
   for (const user of users) {
