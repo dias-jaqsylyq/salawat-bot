@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { MAX_GOAL, REGISTER_RATE_LIMIT_PER_MINUTE } from "../../config.js";
 import { allowRequest } from "../rateLimit.js";
 import { createUser, getUserByTelegramId, isNicknameTaken } from "../../db/repository.js";
-import { hasChallengeEnded, hasChallengeStarted } from "../../utils/challenge.js";
+import { hasChallengeEnded } from "../../utils/challenge.js";
 
 export function registerRoute(req: Request, res: Response) {
   const { nickname, goal } = req.body ?? {};
@@ -21,10 +21,6 @@ export function registerRoute(req: Request, res: Response) {
     return;
   }
 
-  if (!hasChallengeStarted()) {
-    res.status(403).json({ success: false, error: "challenge_not_started" });
-    return;
-  }
   if (hasChallengeEnded()) {
     res.status(403).json({ success: false, error: "challenge_ended" });
     return;

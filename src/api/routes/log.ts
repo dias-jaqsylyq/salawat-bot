@@ -6,11 +6,7 @@ import {
 } from "../../config.js";
 import { allowDailyCount, allowRequest } from "../rateLimit.js";
 import { addLog, getUserByTelegramId, getUserTotal } from "../../db/repository.js";
-import {
-  getDayKeyInTimezone,
-  hasChallengeEnded,
-  hasChallengeStarted,
-} from "../../utils/challenge.js";
+import { getDayKeyInTimezone, hasChallengeEnded } from "../../utils/challenge.js";
 
 export function logRoute(req: Request, res: Response) {
   const { count } = req.body ?? {};
@@ -20,10 +16,6 @@ export function logRoute(req: Request, res: Response) {
     return;
   }
 
-  if (!hasChallengeStarted()) {
-    res.status(403).json({ success: false, error: "challenge_not_started" });
-    return;
-  }
   if (hasChallengeEnded()) {
     res.status(403).json({ success: false, error: "challenge_ended" });
     return;
