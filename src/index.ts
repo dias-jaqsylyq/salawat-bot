@@ -1,12 +1,14 @@
 import "./db/client.js";
 import { config } from "./config.js";
 import { createBot, setupMenuButton } from "./bot.js";
+import { startBackupScheduler } from "./scheduler/backup.js";
 import { startReminderScheduler } from "./scheduler/reminder.js";
 import { createApiServer } from "./api/server.js";
 
 const bot = createBot();
 
 startReminderScheduler(bot);
+startBackupScheduler();
 try {
   await setupMenuButton(bot);
 } catch (err) {

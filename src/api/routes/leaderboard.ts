@@ -3,7 +3,13 @@ import { getLeaderboard } from "../../db/repository.js";
 
 export function leaderboardRoute(_req: Request, res: Response) {
   const rows = getLeaderboard();
-  res.json({
-    leaderboard: rows.map((row, i) => ({ nickname: row.nickname, total: row.total, rank: i + 1 })),
+  // Competition ranking: equal totals share a rank (1, 1, 3 — not 1, 2, 3).
+  let rank = 1;
+  const leaderboard = rows.map((row, i) => {
+    if (i > 0 && row.total < rows[i - 1]!.total) {
+      rank = i + 1;
+    }
+    return { nickname: row.nickname, total: row.total, rank };
   });
+  res.json({ leaderboard });
 }

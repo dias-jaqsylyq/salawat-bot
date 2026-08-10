@@ -63,7 +63,7 @@ Unauthenticated:
 → `403 { success: false, error: "challenge_not_started" | "challenge_ended" }`
 
 **POST /api/log** — body `{ count: number }`
-- `count`: integer, `1`…`100000` inclusive
+- `count`: integer, `1`…`10000` inclusive
 → `200 { success: true, newTotal: number }`
 → `400 { success: false, error: "invalid_count" }`
 → `403 { success: false, error: "not_registered" | "challenge_not_started" | "challenge_ended" }`
@@ -89,13 +89,13 @@ This already assumes the service is on Railway per the original setup. To make t
    - Redeploy. Without a volume, every redeploy starts with an empty database.
 
 ### Backups
-Railway volumes are **not** automatically snapshotted by anything this app configures. The DB runs in WAL mode, so a naive copy of only `salawat.db` mid-write can miss uncheckpointed data in `salawat.db-wal`. Use the online backup API instead:
+The process writes a rolling WAL-safe backup to `data/salawat.backup.db` shortly after boot and daily at 03:00 (challenge timezone) via better-sqlite3. Railway volumes are still not snapshotted for you — copy that file (or timestamped backups) off the volume if the data matters.
+
+For an on-demand timestamped copy (requires `sqlite3` CLI):
 
 ```bash
 npm run backup   # writes data/backups/salawat-<UTC timestamp>.db via sqlite3 .backup
 ```
-
-Schedule that periodically (host cron, Railway cron job, or a one-off shell on the volume). Copy backup files off the volume to somewhere durable if the challenge data matters.
 
 ### Small VPS
 Same idea — `npm install && npm run build`, run under `pm2`, keep `.env` on the server. Expose `PORT` over HTTPS (e.g. via nginx + Let's Encrypt) so the Mini App can reach `/api/*`. Point `DB_PATH` at a durable disk path and run `npm run backup` on a cron.

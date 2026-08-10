@@ -46,7 +46,7 @@ if (toEpochDay(challengeStartDate) > toEpochDay(challengeEndDate)) {
 }
 
 /** Per-request log count ceiling (friend-group sanity cap). */
-export const MAX_LOG_COUNT = 100_000;
+export const MAX_LOG_COUNT = 10_000;
 /** Registration goal ceiling (friend-group sanity cap). */
 export const MAX_GOAL = 100_000_000;
 
