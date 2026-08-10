@@ -29,12 +29,25 @@ Open `.env` and set:
 - `CHALLENGE_START_DATE` / `CHALLENGE_END_DATE` — actual Gregorian dates of this year's Mawlid month, `YYYY-MM-DD` (start must be on or before end). Register/log and daily reminders are only accepted while this inclusive window is active.
 - `TIMEZONE`, `REMINDER_TIME`, `DB_PATH` — defaults: `Asia/Hong_Kong`, `20:00`, `./data/salawat.db`.
 - `PORT` — API port (defaults to `3000` locally; Railway injects this automatically in production).
-- `CORS_ORIGIN` — origin(s) allowed to call the API. Defaults to `*` (dev placeholder). **Before go-live, set this to the real Vercel domain**, e.g. `https://salawat-miniapp.vercel.app` (comma-separated if you need more than one).
-- `MINI_APP_URL` — the deployed Mini App's real HTTPS URL, used for the bot's chat menu button. Defaults to an obvious placeholder. **Before go-live, set this to the real Vercel URL and redeploy** so the menu button opens the app.
+- `CORS_ORIGIN` — origin(s) allowed to call the API. Defaults to `*` (dev only). **In production (`NODE_ENV=production`) this must be set to the real Vercel domain** (not `*`) or the process refuses to start.
+- `MINI_APP_URL` — the deployed Mini App's real HTTPS URL, used for the bot's chat menu button. If left as the placeholder, menu-button setup is skipped (process still boots).
 - `MINI_APP_DEEP_LINK` — `t.me/salawat_challenge_bot/challenge` deep link used in the daily reminder's button. Works today independent of the Vercel deployment.
-- `INIT_DATA_MAX_AGE_SECONDS` — how old a Telegram `initData` payload can be before it's rejected as stale (default 24h).
+- `INIT_DATA_MAX_AGE_SECONDS` — how old a Telegram `initData` payload can be before it's rejected as stale (prefer `3600` in production; code default is 24h if unset).
+- `ADMIN_EXPORT_SECRET` — optional. When set, enables `GET /api/admin/export?key=…` for prize-time CSV download.
 
 **Never commit `.env` or paste your bot token anywhere public.** If a token leaks, revoke it via `@BotFather` → `/revoke`.
+
+### Public go-live checklist
+Before sharing the invite beyond a tiny trusted group:
+
+1. Railway **volume** mounted; `DB_PATH=/data/salawat.db`
+2. `CORS_ORIGIN=https://<vercel-domain>` (not `*`); `NODE_ENV=production`
+3. `MINI_APP_URL` + BotFather Web App URL = same HTTPS URL; redeploy bot
+4. Vercel `VITE_API_URL` = Railway public API URL → **redeploy** the Mini App (Vite bakes env at build time)
+5. Copy `salawat.backup.db` (or `npm run backup` output) **off** the Railway volume on a schedule
+6. `INIT_DATA_MAX_AGE_SECONDS=3600`
+7. Set `ADMIN_EXPORT_SECRET` to a long random string if you want CSV export at prize time
+8. Confirm challenge dates / `TIMEZONE` / `MINI_APP_DEEP_LINK`
 
 ## 3. Run it
 ```bash
@@ -56,24 +69,34 @@ Unauthenticated:
 - **GET /health** → `200 { ok: true }` (for Railway / uptime checks)
 
 **POST /api/register** — body `{ nickname: string, goal: number }`
-- `nickname`: trimmed length 1–50
+- `nickname`: trimmed length 1–50, case-insensitive unique across users
 - `goal`: integer, `1`…`100000000` inclusive
 → `200 { success: true, user: { id, nickname, goal } }` (idempotent — calling it again for an already-registered user just returns their existing record unchanged)
 → `400 { success: false, error: "invalid_nickname" | "invalid_goal" }`
 → `403 { success: false, error: "challenge_not_started" | "challenge_ended" }`
+→ `409 { success: false, error: "nickname_taken" }`
+→ `429 { success: false, error: "rate_limited" }`
 
 **POST /api/log** — body `{ count: number }`
 - `count`: integer, `1`…`10000` inclusive
+- Rate limits: 30 requests/minute/user and 50_000 salawat/calendar day (challenge `TIMEZONE`)
 → `200 { success: true, newTotal: number }`
 → `400 { success: false, error: "invalid_count" }`
 → `403 { success: false, error: "not_registered" | "challenge_not_started" | "challenge_ended" }`
+→ `429 { success: false, error: "rate_limited" }`
 
 **GET /api/progress**
-→ `200 { registered: false }` if not yet registered
-→ `200 { registered: true, nickname, total, goal, percentComplete, daysLeft }`
+→ `200 { registered: false, challengeStatus, challengeStartDate, challengeEndDate }` if not yet registered
+→ `200 { registered: true, nickname, total, goal, percentComplete, daysLeft, challengeStatus, challengeStartDate, challengeEndDate }`
+- `challengeStatus`: `"not_started" | "active" | "ended"`
+- `percentComplete`: capped at 100
 
 **GET /api/leaderboard**
-→ `200 { leaderboard: [{ nickname, total, rank }] }` — all registered users, ranked descending by total.
+→ `200 { leaderboard: [{ nickname, total, rank }] }` — competition ranks (ties share a rank: 1, 1, 3)
+
+**GET /api/admin/export?key=…** (or header `X-Admin-Key`) — CSV of `rank,nickname,telegram_id,total,goal`
+- Requires `ADMIN_EXPORT_SECRET`; otherwise `503 export_disabled`
+→ `401 unauthorized` if key wrong
 
 ## Deploying (Railway)
 This already assumes the service is on Railway per the original setup. To make the API publicly reachable for the Mini App:
@@ -104,4 +127,4 @@ Same idea — `npm install && npm run build`, run under `pm2`, keep `.env` on th
 - `/start`, `/help` — both reply with a short message pointing at the chat menu button, which opens the Mini App.
 
 ## Notes / v1 scope
-Per-user reminder times, streaks, group-chat announcements, admin CSV export, multi-timezone support, and manual count correction remain out of scope (see the original spec). Registration, logging, progress, and leaderboard live in the Mini App — see the [`salawat-miniapp`](https://github.com/dias-jaqsylyq/salawat-miniapp) README for that side.
+Per-user reminder times, streaks, group-chat announcements, multi-timezone support, and manual count correction remain out of scope. A secret-gated CSV export (`/api/admin/export`) is available for prize time. Registration, logging, progress, and leaderboard live in the Mini App — see the [`salawat-miniapp`](https://github.com/dias-jaqsylyq/salawat-miniapp) README for that side.

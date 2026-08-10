@@ -9,10 +9,17 @@ const bot = createBot();
 
 startReminderScheduler(bot);
 startBackupScheduler();
-try {
-  await setupMenuButton(bot);
-} catch (err) {
-  console.error("Failed to set chat menu button (continuing without it):", err);
+
+if (config.miniAppUrlIsPlaceholder) {
+  console.error(
+    "MINI_APP_URL is unset or still a placeholder — skipping chat menu button setup. Set the real Vercel HTTPS URL and redeploy."
+  );
+} else {
+  try {
+    await setupMenuButton(bot);
+  } catch (err) {
+    console.error("Failed to set chat menu button (continuing without it):", err);
+  }
 }
 
 createApiServer().listen(config.port, () => {

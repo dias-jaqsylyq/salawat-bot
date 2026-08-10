@@ -1,10 +1,24 @@
 import { db } from "./client.js";
-import type { LeaderboardRow, User } from "../types.js";
+import type { ExportRow, LeaderboardRow, User } from "../types.js";
 
 export function getUserByTelegramId(telegramId: number): User | undefined {
   return db
     .prepare("SELECT * FROM users WHERE telegram_id = ?")
     .get(telegramId) as User | undefined;
+}
+
+/** Case-insensitive nickname collision check (excludes an optional telegram_id). */
+export function isNicknameTaken(nickname: string, excludeTelegramId?: number): boolean {
+  const row = (
+    excludeTelegramId === undefined
+      ? db.prepare("SELECT 1 AS hit FROM users WHERE LOWER(nickname) = LOWER(?) LIMIT 1").get(nickname)
+      : db
+          .prepare(
+            "SELECT 1 AS hit FROM users WHERE LOWER(nickname) = LOWER(?) AND telegram_id != ? LIMIT 1"
+          )
+          .get(nickname, excludeTelegramId)
+  ) as { hit: number } | undefined;
+  return row !== undefined;
 }
 
 export function createUser(telegramId: number, nickname: string, goal: number): User {
@@ -41,4 +55,20 @@ export function getLeaderboard(): LeaderboardRow[] {
 
 export function getAllUsers(): User[] {
   return db.prepare("SELECT * FROM users").all() as User[];
+}
+
+/** Full leaderboard rows for admin CSV export (includes telegram_id + goal). */
+export function getExportRows(): ExportRow[] {
+  return db
+    .prepare(
+      `SELECT u.nickname AS nickname,
+              u.telegram_id AS telegram_id,
+              u.goal AS goal,
+              COALESCE(SUM(l.count), 0) AS total
+       FROM users u
+       LEFT JOIN logs l ON l.user_id = u.id
+       GROUP BY u.id
+       ORDER BY total DESC, u.nickname ASC`
+    )
+    .all() as ExportRow[];
 }

@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
-import { MAX_GOAL } from "../../config.js";
-import { createUser, getUserByTelegramId } from "../../db/repository.js";
+import { MAX_GOAL, REGISTER_RATE_LIMIT_PER_MINUTE } from "../../config.js";
+import { allowRequest } from "../rateLimit.js";
+import { createUser, getUserByTelegramId, isNicknameTaken } from "../../db/repository.js";
 import { hasChallengeEnded, hasChallengeStarted } from "../../utils/challenge.js";
 
 export function registerRoute(req: Request, res: Response) {
@@ -12,6 +13,11 @@ export function registerRoute(req: Request, res: Response) {
   }
   if (typeof goal !== "number" || !Number.isInteger(goal) || goal <= 0 || goal > MAX_GOAL) {
     res.status(400).json({ success: false, error: "invalid_goal" });
+    return;
+  }
+
+  if (!allowRequest(req.telegramId, REGISTER_RATE_LIMIT_PER_MINUTE)) {
+    res.status(429).json({ success: false, error: "rate_limited" });
     return;
   }
 
@@ -33,6 +39,30 @@ export function registerRoute(req: Request, res: Response) {
     return;
   }
 
-  const user = createUser(req.telegramId, nickname.trim(), goal);
-  res.json({ success: true, user: { id: user.id, nickname: user.nickname, goal: user.goal } });
+  const trimmed = nickname.trim();
+  if (isNicknameTaken(trimmed)) {
+    res.status(409).json({ success: false, error: "nickname_taken" });
+    return;
+  }
+
+  try {
+    const user = createUser(req.telegramId, trimmed, goal);
+    res.json({ success: true, user: { id: user.id, nickname: user.nickname, goal: user.goal } });
+  } catch (err) {
+    // Parallel first-time register: UNIQUE(telegram_id) — treat as idempotent success.
+    const raced = getUserByTelegramId(req.telegramId);
+    if (raced) {
+      res.json({
+        success: true,
+        user: { id: raced.id, nickname: raced.nickname, goal: raced.goal },
+      });
+      return;
+    }
+    // Parallel nickname grab
+    if (isNicknameTaken(trimmed)) {
+      res.status(409).json({ success: false, error: "nickname_taken" });
+      return;
+    }
+    throw err;
+  }
 }

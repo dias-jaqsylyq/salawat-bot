@@ -18,6 +18,13 @@ export interface LeaderboardRow {
   total: number;
 }
 
+export interface ExportRow {
+  nickname: string;
+  telegram_id: number;
+  goal: number;
+  total: number;
+}
+
 export interface DateParts {
   year: number;
   month: number;
