@@ -32,7 +32,7 @@ export function exportRoute(req: Request, res: Response) {
   });
 
   const lines = [
-    "rank,nickname,telegram_id,total,goal",
+    "rank,nickname,telegram_id,total,daily_goal",
     ...ranked.map(
       (r) =>
         `${r.rank},${csvEscape(r.nickname)},${r.telegram_id},${r.total},${r.goal}`

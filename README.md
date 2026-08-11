@@ -70,7 +70,7 @@ Unauthenticated:
 
 **POST /api/register** — body `{ nickname: string, goal: number }`
 - `nickname`: trimmed length 1–50, case-insensitive unique across users
-- `goal`: integer, `1`…`100000000` inclusive
+- `goal`: **daily** salawat target — integer, `1`…`100000000` inclusive (stored as `users.goal`)
 → `200 { success: true, user: { id, nickname, goal } }` (idempotent — calling it again for an already-registered user just returns their existing record unchanged)
 → `400 { success: false, error: "invalid_nickname" | "invalid_goal" }`
 → `403 { success: false, error: "challenge_not_started" | "challenge_ended" }`
@@ -87,15 +87,18 @@ Unauthenticated:
 
 **GET /api/progress**
 → `200 { registered: false, challengeStatus, challengeStartDate, challengeEndDate }` if not yet registered
-→ `200 { registered: true, nickname, total, todayTotal, goal, percentComplete, daysLeft, challengeStatus, challengeStartDate, challengeEndDate }`
+→ `200 { registered: true, nickname, total, todayTotal, dailyGoal, streak, last7Days, daysLeft, challengeStatus, challengeStartDate, challengeEndDate }`
+- `total`: all-time sum
 - `todayTotal` / `newTodayTotal`: salawat logged so far on the current calendar day in `TIMEZONE` (not UTC midnight)
+- `dailyGoal`: daily target (`users.goal`)
+- `streak`: consecutive TIMEZONE days (walking backward from today) where that day's total ≥ `dailyGoal`. Today only counts once met; if today is still unmet, counting starts at yesterday. A completed missed day resets the streak to 0 (no grace period). Streak does not extend before `CHALLENGE_START_DATE`.
+- `last7Days`: array of 7 `{ date, total, metGoal }` entries, oldest → newest, ending with today (`date` is `YYYY-MM-DD` in `TIMEZONE`)
 - `challengeStatus`: `"not_started" | "active" | "ended"`
-- `percentComplete`: capped at 100
 
 **GET /api/leaderboard**
 → `200 { leaderboard: [{ nickname, total, rank }] }` — competition ranks (ties share a rank: 1, 1, 3)
 
-**GET /api/admin/export?key=…** (or header `X-Admin-Key`) — CSV of `rank,nickname,telegram_id,total,goal`
+**GET /api/admin/export?key=…** (or header `X-Admin-Key`) — CSV of `rank,nickname,telegram_id,total,daily_goal`
 - Requires `ADMIN_EXPORT_SECRET`; otherwise `503 export_disabled`
 → `401 unauthorized` if key wrong
 
@@ -128,4 +131,4 @@ Same idea — `npm install && npm run build`, run under `pm2`, keep `.env` on th
 - `/start`, `/help` — both reply with a short message pointing at the chat menu button, which opens the Mini App.
 
 ## Notes / v1 scope
-Per-user reminder times, streaks, group-chat announcements, multi-timezone support, and manual count correction remain out of scope. A secret-gated CSV export (`/api/admin/export`) is available for prize time. Registration, logging, progress, and leaderboard live in the Mini App — see the [`salawat-miniapp`](https://github.com/dias-jaqsylyq/salawat-miniapp) README for that side.
+Per-user reminder times, group-chat announcements, multi-timezone support, and manual count correction remain out of scope. Daily goals and streaks are included via `/api/progress`. A secret-gated CSV export (`/api/admin/export`) is available for prize time. Registration, logging, progress, and leaderboard live in the Mini App — see the [`salawat-miniapp`](https://github.com/dias-jaqsylyq/salawat-miniapp) README for that side.

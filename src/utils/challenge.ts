@@ -1,5 +1,18 @@
 import { config } from "../config.js";
 import type { DateParts } from "../types.js";
+import {
+  addOneCalendarDay,
+  formatDateParts,
+  parseDateKey,
+  subtractOneCalendarDay,
+} from "./dates.js";
+
+export {
+  addOneCalendarDay,
+  formatDateParts,
+  parseDateKey,
+  subtractOneCalendarDay,
+} from "./dates.js";
 
 /** Returns today's calendar date (Y/M/D) as observed in the given IANA timezone. */
 export function getTodayInTimezone(timeZone: string, now: Date = new Date()): DateParts {
@@ -52,21 +65,9 @@ export function getChallengeStatus(now: Date = new Date()): ChallengeStatus {
   return "active";
 }
 
-/** Format DateParts as YYYY-MM-DD for API clients. */
-export function formatDateParts(parts: DateParts): string {
-  const mm = String(parts.month).padStart(2, "0");
-  const dd = String(parts.day).padStart(2, "0");
-  return `${parts.year}-${mm}-${dd}`;
-}
-
 /** Calendar day key (YYYY-MM-DD) in the challenge timezone — for daily caps. */
 export function getDayKeyInTimezone(now: Date = new Date()): string {
   return formatDateParts(getTodayInTimezone(config.timezone, now));
-}
-
-function addOneCalendarDay(parts: DateParts): DateParts {
-  const next = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + 1));
-  return { year: next.getUTCFullYear(), month: next.getUTCMonth() + 1, day: next.getUTCDate() };
 }
 
 /** Convert a wall-clock time in `timeZone` to the corresponding UTC Date. */
@@ -127,13 +128,15 @@ function formatSqliteUtc(date: Date): string {
 }
 
 /**
- * UTC half-open [start, end) for the calendar day containing `now` in `TIMEZONE`.
+ * UTC half-open [start, end) for a calendar day in `timeZone`.
  * String format matches `logs.logged_at` (`datetime('now')` UTC text).
  */
-export function getTodayUtcRange(now: Date = new Date()): { startUtc: string; endUtc: string } {
-  const today = getTodayInTimezone(config.timezone, now);
-  const tomorrow = addOneCalendarDay(today);
-  const start = zonedTimeToUtc(today.year, today.month, today.day, 0, 0, 0, config.timezone);
+export function getUtcRangeForDate(
+  parts: DateParts,
+  timeZone: string = config.timezone
+): { startUtc: string; endUtc: string } {
+  const tomorrow = addOneCalendarDay(parts);
+  const start = zonedTimeToUtc(parts.year, parts.month, parts.day, 0, 0, 0, timeZone);
   const end = zonedTimeToUtc(
     tomorrow.year,
     tomorrow.month,
@@ -141,9 +144,25 @@ export function getTodayUtcRange(now: Date = new Date()): { startUtc: string; en
     0,
     0,
     0,
-    config.timezone
+    timeZone
   );
   return { startUtc: formatSqliteUtc(start), endUtc: formatSqliteUtc(end) };
+}
+
+/**
+ * UTC half-open [start, end) for the calendar day containing `now` in `TIMEZONE`.
+ * String format matches `logs.logged_at` (`datetime('now')` UTC text).
+ */
+export function getTodayUtcRange(now: Date = new Date()): { startUtc: string; endUtc: string } {
+  return getUtcRangeForDate(getTodayInTimezone(config.timezone, now), config.timezone);
+}
+
+/**
+ * Map a SQLite UTC `logged_at` (`YYYY-MM-DD HH:MM:SS`) to a calendar day key in `timeZone`.
+ */
+export function dayKeyFromSqliteUtc(loggedAt: string, timeZone: string = config.timezone): string {
+  const iso = loggedAt.includes("T") ? loggedAt : `${loggedAt.replace(" ", "T")}Z`;
+  return formatDateParts(getTodayInTimezone(timeZone, new Date(iso)));
 }
 
 export function getPercentComplete(total: number, goal: number): number {

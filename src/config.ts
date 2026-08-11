@@ -47,7 +47,7 @@ if (toEpochDay(challengeStartDate) > toEpochDay(challengeEndDate)) {
 
 /** Per-request log count ceiling (friend-group sanity cap). */
 export const MAX_LOG_COUNT = 10_000;
-/** Registration goal ceiling (friend-group sanity cap). */
+/** Registration daily-goal ceiling (friend-group sanity cap). */
 export const MAX_GOAL = 100_000_000;
 
 /** Max POST /api/log requests per telegram user per rolling minute. */

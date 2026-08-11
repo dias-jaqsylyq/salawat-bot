@@ -53,6 +53,21 @@ export function getUserTodayTotal(userId: number, startUtc: string, endUtc: stri
   return row.total;
 }
 
+/** Individual log counts at/after startUtc (for TIMEZONE day bucketing). */
+export function getUserLogsSince(
+  userId: number,
+  startUtc: string
+): { logged_at: string; count: number }[] {
+  return db
+    .prepare(
+      `SELECT logged_at, count
+       FROM logs
+       WHERE user_id = ? AND logged_at >= ?
+       ORDER BY logged_at ASC`
+    )
+    .all(userId, startUtc) as { logged_at: string; count: number }[];
+}
+
 export function getLeaderboard(): LeaderboardRow[] {
   return db
     .prepare(
