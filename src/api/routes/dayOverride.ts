@@ -30,10 +30,16 @@ export function putDayOverrideRoute(req: Request, res: Response) {
   }
 
   const fields = computeUserProgressFields(user);
-  const { todayKey, windowStartKey } = fields;
+  const { todayKey, windowStartKey, earliestEligibleKey } = fields;
 
   // Today and future locked; only past days in the visible window.
   if (date >= todayKey || date < windowStartKey) {
+    res.status(400).json({ success: false, error: "date_not_editable" });
+    return;
+  }
+
+  // Days before the user was eligible (challenge start / registration) are locked.
+  if (date < earliestEligibleKey) {
     res.status(400).json({ success: false, error: "date_not_editable" });
     return;
   }

@@ -9,6 +9,8 @@ export interface DayBreakdown {
   date: string;
   total: number;
   metGoal: boolean;
+  /** True for days before the user was eligible (challenge start / registration). */
+  locked: boolean;
 }
 
 /** Override wins when present; otherwise total >= dailyGoal. */
@@ -22,12 +24,18 @@ export function effectiveMet(
   return total >= dailyGoal;
 }
 
+function isBefore(day: DateParts, earliest: DateParts): boolean {
+  const dayEpoch = Date.UTC(day.year, day.month - 1, day.day);
+  const earliestEpoch = Date.UTC(earliest.year, earliest.month - 1, earliest.day);
+  return dayEpoch < earliestEpoch;
+}
+
 /**
  * Consecutive met days walking backward from today.
  * - Today counts only from real logs (overrides ignored — today is locked).
  * - If today is unmet, walking starts at yesterday (today still in progress).
  * - Past days use effectiveMet (override authoritative when present).
- * - Days before `earliestParts` (challenge start) are ignored / stop the walk.
+ * - Days before `earliestParts` (challenge start / registration) stop the walk.
  */
 export function computeStreak(
   dailyGoal: number,
@@ -48,15 +56,7 @@ export function computeStreak(
 
   let streak = 0;
   while (true) {
-    if (earliestParts) {
-      const dayEpoch = Date.UTC(day.year, day.month - 1, day.day);
-      const earliestEpoch = Date.UTC(
-        earliestParts.year,
-        earliestParts.month - 1,
-        earliestParts.day
-      );
-      if (dayEpoch < earliestEpoch) break;
-    }
+    if (earliestParts && isBefore(day, earliestParts)) break;
 
     const date = formatDateParts(day);
     const total = totalsByDate.get(date) ?? 0;
@@ -76,6 +76,7 @@ export function buildLast7Days(
   dailyGoal: number,
   totalsByDate: Map<string, number>,
   todayParts: DateParts,
+  earliestParts?: DateParts,
   overrides?: Map<string, boolean>
 ): DayBreakdown[] {
   let day = todayParts;
@@ -88,11 +89,17 @@ export function buildLast7Days(
   for (let i = 0; i < 7; i++) {
     const date = formatDateParts(day);
     const total = totalsByDate.get(date) ?? 0;
-    const metGoal =
-      date === todayKey
-        ? total >= dailyGoal
-        : effectiveMet(date, total, dailyGoal, overrides);
-    days.push({ date, total, metGoal });
+    const locked = earliestParts ? isBefore(day, earliestParts) : false;
+    if (locked) {
+      // Pre-eligibility: not missed, not makeup-eligible, ignore overrides.
+      days.push({ date, total, metGoal: false, locked: true });
+    } else {
+      const metGoal =
+        date === todayKey
+          ? total >= dailyGoal
+          : effectiveMet(date, total, dailyGoal, overrides);
+      days.push({ date, total, metGoal, locked: false });
+    }
     day = addOneCalendarDay(day);
   }
   return days;

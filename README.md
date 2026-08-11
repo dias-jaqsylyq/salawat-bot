@@ -92,12 +92,12 @@ Unauthenticated:
 - `todayTotal` / `newTodayTotal`: salawat logged so far on the current calendar day in `TIMEZONE` (not UTC midnight)
 - `dailyGoal`: daily target (`users.goal`)
 - `streak`: consecutive TIMEZONE days (walking backward from today) where that day is effectively met. Today uses live logs only (overrides ignored). Past days use a per-day override when set, otherwise `total ≥ dailyGoal`. Streak does not extend before `CHALLENGE_START_DATE`.
-- `last7Days`: array of 7 `{ date, total, metGoal }` entries, oldest → newest, ending with today (`date` is `YYYY-MM-DD` in `TIMEZONE`). `total` is always from logs; `metGoal` for past days follows override when present.
+- `last7Days`: array of 7 `{ date, total, metGoal, locked }` entries, oldest → newest, ending with today (`date` is `YYYY-MM-DD` in `TIMEZONE`). `total` is always from logs; `metGoal` for past days follows override when present. Days before `max(CHALLENGE_START_DATE, user.created_at day)` have `locked: true` (not missed / not makeup-eligible).
 - `challengeStatus`: `"not_started" | "active" | "ended"`
 
 **PUT /api/day-override** — body `{ date: string, met: boolean }`
 - Sets a per-day met/missed override for makeup (does **not** change logged salawat totals)
-- `date` must be a past day in the visible last-7 window (`today-6` … `today-1` in `TIMEZONE`); today and future are rejected
+- `date` must be a past day in the visible last-7 window (`today-6` … `today-1` in `TIMEZONE`); today, future, and days before the user’s eligibility floor (`max(CHALLENGE_START_DATE, registration day)`) are rejected
 - → `200 { success: true, streak, last7Days }`
 - → `400 { success: false, error: "invalid_date" | "invalid_met" | "date_not_editable" }`
 - → `403 { success: false, error: "not_registered" }`

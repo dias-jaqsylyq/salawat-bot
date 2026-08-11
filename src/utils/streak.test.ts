@@ -110,6 +110,22 @@ describe("computeStreak", () => {
     assert.equal(streak, 2);
   });
 
+  it("does not extend before registration day (mid-challenge join)", () => {
+    const registeredToday: DateParts = { year: 2026, month: 8, day: 11 };
+    const streak = computeStreak(
+      100,
+      totals({
+        "2026-08-10": 0,
+        "2026-08-11": 50,
+      }),
+      today,
+      registeredToday
+    );
+    // yesterday is before registration → not a miss that breaks after today;
+    // today unmet → walk starts yesterday → immediately before earliest → 0
+    assert.equal(streak, 0);
+  });
+
   it("override met on zero-total past day counts toward streak only for that day", () => {
     const streak = computeStreak(
       100,
@@ -190,10 +206,10 @@ describe("buildLast7Days", () => {
     assert.equal(days.length, 7);
     assert.equal(days[0]!.date, "2026-08-05");
     assert.equal(days[6]!.date, "2026-08-11");
-    assert.deepEqual(days[0], { date: "2026-08-05", total: 120, metGoal: true });
-    assert.deepEqual(days[1], { date: "2026-08-06", total: 40, metGoal: false });
-    assert.deepEqual(days[2], { date: "2026-08-07", total: 0, metGoal: false });
-    assert.deepEqual(days[6], { date: "2026-08-11", total: 45, metGoal: false });
+    assert.deepEqual(days[0], { date: "2026-08-05", total: 120, metGoal: true, locked: false });
+    assert.deepEqual(days[1], { date: "2026-08-06", total: 40, metGoal: false, locked: false });
+    assert.deepEqual(days[2], { date: "2026-08-07", total: 0, metGoal: false, locked: false });
+    assert.deepEqual(days[6], { date: "2026-08-11", total: 45, metGoal: false, locked: false });
   });
 
   it("keeps log totals while metGoal follows override; neighbors unchanged", () => {
@@ -205,11 +221,12 @@ describe("buildLast7Days", () => {
         "2026-08-11": 45,
       }),
       today,
+      undefined,
       overrides({ "2026-08-09": true, "2026-08-10": false })
     );
-    assert.deepEqual(days[4], { date: "2026-08-09", total: 0, metGoal: true });
-    assert.deepEqual(days[5], { date: "2026-08-10", total: 200, metGoal: false });
-    assert.deepEqual(days[6], { date: "2026-08-11", total: 45, metGoal: false });
+    assert.deepEqual(days[4], { date: "2026-08-09", total: 0, metGoal: true, locked: false });
+    assert.deepEqual(days[5], { date: "2026-08-10", total: 200, metGoal: false, locked: false });
+    assert.deepEqual(days[6], { date: "2026-08-11", total: 45, metGoal: false, locked: false });
   });
 
   it("does not apply override to today", () => {
@@ -217,8 +234,78 @@ describe("buildLast7Days", () => {
       100,
       totals({ "2026-08-11": 10 }),
       today,
+      undefined,
       overrides({ "2026-08-11": true })
     );
-    assert.deepEqual(days[6], { date: "2026-08-11", total: 10, metGoal: false });
+    assert.deepEqual(days[6], { date: "2026-08-11", total: 10, metGoal: false, locked: false });
+  });
+
+  it("locks days before mid-challenge registration (no missed / makeup)", () => {
+    const registeredToday: DateParts = { year: 2026, month: 8, day: 11 };
+    const days = buildLast7Days(
+      100,
+      totals({ "2026-08-11": 0 }),
+      today,
+      registeredToday
+    );
+    assert.equal(days.length, 7);
+    for (let i = 0; i < 6; i++) {
+      assert.equal(days[i]!.locked, true, `${days[i]!.date} should be locked`);
+      assert.equal(days[i]!.metGoal, false);
+    }
+    assert.deepEqual(days[6], {
+      date: "2026-08-11",
+      total: 0,
+      metGoal: false,
+      locked: false,
+    });
+    // No unlocked past day is "missed" — banner would find nothing.
+    const unlockedMissedPast = days
+      .slice(0, -1)
+      .filter((d) => !d.locked && !d.metGoal);
+    assert.equal(unlockedMissedPast.length, 0);
+  });
+
+  it("ignores overrides on locked pre-registration days", () => {
+    const registeredToday: DateParts = { year: 2026, month: 8, day: 11 };
+    const days = buildLast7Days(
+      100,
+      totals({}),
+      today,
+      registeredToday,
+      overrides({ "2026-08-10": true })
+    );
+    assert.deepEqual(days[5], {
+      date: "2026-08-10",
+      total: 0,
+      metGoal: false,
+      locked: true,
+    });
+  });
+
+  it("keeps normal missed/met when registered at challenge start", () => {
+    const challengeStart: DateParts = { year: 2026, month: 8, day: 1 };
+    const days = buildLast7Days(
+      100,
+      totals({
+        "2026-08-05": 120,
+        "2026-08-06": 40,
+        "2026-08-11": 45,
+      }),
+      today,
+      challengeStart
+    );
+    // All window days are on/after challenge start → none locked.
+    assert.ok(days.every((d) => d.locked === false));
+    assert.deepEqual(days[0], { date: "2026-08-05", total: 120, metGoal: true, locked: false });
+    assert.deepEqual(days[1], { date: "2026-08-06", total: 40, metGoal: false, locked: false });
+    assert.deepEqual(days[2], { date: "2026-08-07", total: 0, metGoal: false, locked: false });
+    // Banner would still surface Aug 10 (most recent unlocked miss) — expected for
+    // a start-day registrant who actually missed days after joining.
+    const unlockedMissedPast = days
+      .slice(0, -1)
+      .filter((d) => !d.locked && !d.metGoal);
+    assert.ok(unlockedMissedPast.length > 0);
+    assert.equal(unlockedMissedPast[unlockedMissedPast.length - 1]!.date, "2026-08-10");
   });
 });
