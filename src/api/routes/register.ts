@@ -42,7 +42,7 @@ export function registerRoute(req: Request, res: Response) {
   }
 
   try {
-    const user = createUser(req.telegramId, trimmed, goal);
+    const user = createUser(req.telegramId, trimmed, goal, req.telegramProfile);
     res.json({ success: true, user: { id: user.id, nickname: user.nickname, goal: user.goal } });
   } catch (err) {
     // Parallel first-time register: UNIQUE(telegram_id) — treat as idempotent success.

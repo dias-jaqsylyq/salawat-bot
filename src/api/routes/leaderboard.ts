@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { getJamaatTotal, getLeaderboard } from "../../db/repository.js";
 
-export function leaderboardRoute(_req: Request, res: Response) {
+export function leaderboardRoute(req: Request, res: Response) {
   const rows = getLeaderboard();
   // Competition ranking: equal totals share a rank (1, 1, 3 — not 1, 2, 3).
   let rank = 1;
@@ -13,7 +13,7 @@ export function leaderboardRoute(_req: Request, res: Response) {
       nickname: row.nickname,
       total: row.total,
       rank,
-      telegramId: row.telegram_id,
+      isYou: row.telegram_id === req.telegramId,
     };
   });
   res.json({

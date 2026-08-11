@@ -1,13 +1,21 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import type { TelegramProfile } from "../types.js";
 
 export class InitDataError extends Error {}
 
-export interface ValidatedInitData {
+export interface ValidatedInitData extends TelegramProfile {
   telegramId: number;
 }
 
 interface TelegramUserField {
   id: number;
+  username?: unknown;
+  first_name?: unknown;
+  last_name?: unknown;
+}
+
+function optionalString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
 }
 
 /**
@@ -72,5 +80,10 @@ export function validateInitData(
     throw new InitDataError("Malformed user field");
   }
 
-  return { telegramId: user.id };
+  return {
+    telegramId: user.id,
+    telegramUsername: optionalString(user.username),
+    telegramFirstName: optionalString(user.first_name),
+    telegramLastName: optionalString(user.last_name),
+  };
 }
