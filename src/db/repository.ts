@@ -68,6 +68,37 @@ export function getUserLogsSince(
     .all(userId, startUtc) as { logged_at: string; count: number }[];
 }
 
+/** Day goal overrides in [fromDay, toDay] inclusive (YYYY-MM-DD keys). */
+export function getDayOverrides(
+  userId: number,
+  fromDay: string,
+  toDay: string
+): Map<string, boolean> {
+  const rows = db
+    .prepare(
+      `SELECT day, met
+       FROM day_goal_overrides
+       WHERE user_id = ? AND day >= ? AND day <= ?`
+    )
+    .all(userId, fromDay, toDay) as { day: string; met: number }[];
+  const map = new Map<string, boolean>();
+  for (const row of rows) {
+    map.set(row.day, row.met === 1);
+  }
+  return map;
+}
+
+/** Upsert a per-day met/missed override (does not change logs). */
+export function upsertDayOverride(userId: number, day: string, met: boolean): void {
+  db.prepare(
+    `INSERT INTO day_goal_overrides (user_id, day, met, updated_at)
+     VALUES (?, ?, ?, datetime('now'))
+     ON CONFLICT(user_id, day) DO UPDATE SET
+       met = excluded.met,
+       updated_at = excluded.updated_at`
+  ).run(userId, day, met ? 1 : 0);
+}
+
 export function getLeaderboard(): LeaderboardRow[] {
   return db
     .prepare(

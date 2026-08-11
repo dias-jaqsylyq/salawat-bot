@@ -11,23 +11,37 @@ export interface DayBreakdown {
   metGoal: boolean;
 }
 
+/** Override wins when present; otherwise total >= dailyGoal. */
+export function effectiveMet(
+  date: string,
+  total: number,
+  dailyGoal: number,
+  overrides?: Map<string, boolean>
+): boolean {
+  if (overrides?.has(date)) return overrides.get(date)!;
+  return total >= dailyGoal;
+}
+
 /**
  * Consecutive met days walking backward from today.
- * - Today counts only if todayTotal >= dailyGoal.
+ * - Today counts only from real logs (overrides ignored — today is locked).
  * - If today is unmet, walking starts at yesterday (today still in progress).
- * - A past day with total < dailyGoal stops the streak (no grace period).
+ * - Past days use effectiveMet (override authoritative when present).
  * - Days before `earliestParts` (challenge start) are ignored / stop the walk.
  */
 export function computeStreak(
   dailyGoal: number,
   totalsByDate: Map<string, number>,
   todayParts: DateParts,
-  earliestParts?: DateParts
+  earliestParts?: DateParts,
+  overrides?: Map<string, boolean>
 ): number {
   if (dailyGoal <= 0) return 0;
 
   let day = todayParts;
-  const todayTotal = totalsByDate.get(formatDateParts(day)) ?? 0;
+  const todayKey = formatDateParts(day);
+  const todayTotal = totalsByDate.get(todayKey) ?? 0;
+  // Today is locked to live logs — never apply overrides.
   if (todayTotal < dailyGoal) {
     day = subtractOneCalendarDay(day);
   }
@@ -44,8 +58,13 @@ export function computeStreak(
       if (dayEpoch < earliestEpoch) break;
     }
 
-    const total = totalsByDate.get(formatDateParts(day)) ?? 0;
-    if (total < dailyGoal) break;
+    const date = formatDateParts(day);
+    const total = totalsByDate.get(date) ?? 0;
+    const isToday = date === todayKey;
+    const met = isToday
+      ? total >= dailyGoal
+      : effectiveMet(date, total, dailyGoal, overrides);
+    if (!met) break;
     streak += 1;
     day = subtractOneCalendarDay(day);
   }
@@ -56,18 +75,24 @@ export function computeStreak(
 export function buildLast7Days(
   dailyGoal: number,
   totalsByDate: Map<string, number>,
-  todayParts: DateParts
+  todayParts: DateParts,
+  overrides?: Map<string, boolean>
 ): DayBreakdown[] {
   let day = todayParts;
   for (let i = 0; i < 6; i++) {
     day = subtractOneCalendarDay(day);
   }
 
+  const todayKey = formatDateParts(todayParts);
   const days: DayBreakdown[] = [];
   for (let i = 0; i < 7; i++) {
     const date = formatDateParts(day);
     const total = totalsByDate.get(date) ?? 0;
-    days.push({ date, total, metGoal: total >= dailyGoal });
+    const metGoal =
+      date === todayKey
+        ? total >= dailyGoal
+        : effectiveMet(date, total, dailyGoal, overrides);
+    days.push({ date, total, metGoal });
     day = addOneCalendarDay(day);
   }
   return days;

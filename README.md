@@ -91,9 +91,16 @@ Unauthenticated:
 - `total`: all-time sum
 - `todayTotal` / `newTodayTotal`: salawat logged so far on the current calendar day in `TIMEZONE` (not UTC midnight)
 - `dailyGoal`: daily target (`users.goal`)
-- `streak`: consecutive TIMEZONE days (walking backward from today) where that day's total ≥ `dailyGoal`. Today only counts once met; if today is still unmet, counting starts at yesterday. A completed missed day resets the streak to 0 (no grace period). Streak does not extend before `CHALLENGE_START_DATE`.
-- `last7Days`: array of 7 `{ date, total, metGoal }` entries, oldest → newest, ending with today (`date` is `YYYY-MM-DD` in `TIMEZONE`)
+- `streak`: consecutive TIMEZONE days (walking backward from today) where that day is effectively met. Today uses live logs only (overrides ignored). Past days use a per-day override when set, otherwise `total ≥ dailyGoal`. Streak does not extend before `CHALLENGE_START_DATE`.
+- `last7Days`: array of 7 `{ date, total, metGoal }` entries, oldest → newest, ending with today (`date` is `YYYY-MM-DD` in `TIMEZONE`). `total` is always from logs; `metGoal` for past days follows override when present.
 - `challengeStatus`: `"not_started" | "active" | "ended"`
+
+**PUT /api/day-override** — body `{ date: string, met: boolean }`
+- Sets a per-day met/missed override for makeup (does **not** change logged salawat totals)
+- `date` must be a past day in the visible last-7 window (`today-6` … `today-1` in `TIMEZONE`); today and future are rejected
+- → `200 { success: true, streak, last7Days }`
+- → `400 { success: false, error: "invalid_date" | "invalid_met" | "date_not_editable" }`
+- → `403 { success: false, error: "not_registered" }`
 
 **GET /api/leaderboard**
 → `200 { jamaatTotal, leaderboard: [{ nickname, total, rank, telegramId }] }`

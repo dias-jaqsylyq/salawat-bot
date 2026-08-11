@@ -16,3 +16,12 @@ CREATE TABLE IF NOT EXISTS logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_logs_user_id ON logs(user_id);
+
+/** Per-day goal met/missed overrides (makeup) — does not change logged salawat. */
+CREATE TABLE IF NOT EXISTS day_goal_overrides (
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  day TEXT NOT NULL,
+  met INTEGER NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, day)
+);
