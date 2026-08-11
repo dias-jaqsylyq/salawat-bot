@@ -204,6 +204,21 @@ export function updateUserProfile(telegramId: number, update: UserProfileUpdate)
   })();
 }
 
+/** Delete all challenge data so participants must re-register. Returns row counts removed. */
+export function resetAllChallengeData(): {
+  dayGoalOverrides: number;
+  logs: number;
+  users: number;
+} {
+  const wipe = db.transaction(() => {
+    const dayGoalOverrides = db.prepare("DELETE FROM day_goal_overrides").run().changes;
+    const logs = db.prepare("DELETE FROM logs").run().changes;
+    const users = db.prepare("DELETE FROM users").run().changes;
+    return { dayGoalOverrides, logs, users };
+  });
+  return wipe();
+}
+
 /** Full leaderboard rows for admin CSV export (includes telegram_id + goal + profile). */
 export function getExportRows(): ExportRow[] {
   return db

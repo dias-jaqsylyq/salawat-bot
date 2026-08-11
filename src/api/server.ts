@@ -7,6 +7,7 @@ import { logRoute } from "./routes/log.js";
 import { progressRoute } from "./routes/progress.js";
 import { leaderboardRoute } from "./routes/leaderboard.js";
 import { exportRoute } from "./routes/export.js";
+import { resetRoute } from "./routes/reset.js";
 import { getProfileRoute, patchProfileRoute } from "./routes/profile.js";
 import { putDayOverrideRoute } from "./routes/dayOverride.js";
 
@@ -22,6 +23,7 @@ export function createApiServer() {
   });
 
   app.get("/api/admin/export", exportRoute);
+  app.post("/api/admin/reset", resetRoute);
 
   app.post("/api/register", telegramAuth, registerRoute);
   app.post("/api/log", telegramAuth, logRoute);

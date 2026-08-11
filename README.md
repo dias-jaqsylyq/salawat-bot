@@ -131,6 +131,12 @@ Unauthenticated:
 - Telegram profile name fields are stored from `initData.user` at registration and refreshed on later authenticated requests; existing users stay null until they open the app again
 → `401 unauthorized` if key wrong
 
+**POST /api/admin/reset?key=…** (or header `X-Admin-Key`) — wipe all users, logs, and day overrides so everyone re-registers
+- Body: `{ "confirm": "RESET" }` (required)
+- Requires `ADMIN_EXPORT_SECRET`; otherwise `503 export_disabled`
+→ `200 { success: true, deleted: { dayGoalOverrides, logs, users } }`
+→ `400 confirm_required` / `401 unauthorized`
+
 ## Deploying (Railway)
 This already assumes the service is on Railway per the original setup. To make the API publicly reachable for the Mini App:
 
