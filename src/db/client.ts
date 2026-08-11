@@ -21,3 +21,14 @@ db.pragma("foreign_keys = ON");
 
 const schema = readFileSync(join(__dirname, "schema.sql"), "utf8");
 db.exec(schema);
+
+/** Idempotent column adds for DBs created before a given schema revision. */
+function ensureUserColumn(name: string, ddl: string) {
+  const cols = db.prepare("PRAGMA table_info(users)").all() as { name: string }[];
+  if (!cols.some((c) => c.name === name)) {
+    db.exec(`ALTER TABLE users ADD COLUMN ${name} ${ddl}`);
+  }
+}
+
+ensureUserColumn("reminder_enabled", "INTEGER NOT NULL DEFAULT 1");
+ensureUserColumn("reminder_time", "TEXT");

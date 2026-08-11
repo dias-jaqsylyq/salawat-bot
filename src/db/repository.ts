@@ -84,6 +84,45 @@ export function getAllUsers(): User[] {
   return db.prepare("SELECT * FROM users").all() as User[];
 }
 
+/** Users who opted into daily reminders. */
+export function getUsersWithRemindersEnabled(): User[] {
+  return db
+    .prepare("SELECT * FROM users WHERE reminder_enabled = 1")
+    .all() as User[];
+}
+
+export interface UserProfileUpdate {
+  nickname?: string;
+  goal?: number;
+  reminderEnabled?: boolean;
+  /** HH:mm override, or null to clear back to global default. */
+  reminderTime?: string | null;
+}
+
+export function updateUserProfile(telegramId: number, update: UserProfileUpdate): User {
+  const user = getUserByTelegramId(telegramId);
+  if (!user) {
+    throw new Error(`updateUserProfile: user ${telegramId} not found`);
+  }
+
+  const nickname = update.nickname ?? user.nickname;
+  const goal = update.goal ?? user.goal;
+  const reminderEnabled =
+    update.reminderEnabled !== undefined ? (update.reminderEnabled ? 1 : 0) : user.reminder_enabled;
+  const reminderTime =
+    update.reminderTime !== undefined ? update.reminderTime : user.reminder_time;
+
+  db.prepare(
+    `UPDATE users
+     SET nickname = ?, goal = ?, reminder_enabled = ?, reminder_time = ?
+     WHERE telegram_id = ?`
+  ).run(nickname, goal, reminderEnabled, reminderTime, telegramId);
+
+  return getUserByTelegramId(telegramId) ?? (() => {
+    throw new Error(`Failed to reload user ${telegramId} after profile update`);
+  })();
+}
+
 /** Full leaderboard rows for admin CSV export (includes telegram_id + goal). */
 export function getExportRows(): ExportRow[] {
   return db

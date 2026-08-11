@@ -7,6 +7,7 @@ import { logRoute } from "./routes/log.js";
 import { progressRoute } from "./routes/progress.js";
 import { leaderboardRoute } from "./routes/leaderboard.js";
 import { exportRoute } from "./routes/export.js";
+import { getProfileRoute, patchProfileRoute } from "./routes/profile.js";
 
 export function createApiServer() {
   const app = express();
@@ -25,6 +26,8 @@ export function createApiServer() {
   app.post("/api/log", telegramAuth, logRoute);
   app.get("/api/progress", telegramAuth, progressRoute);
   app.get("/api/leaderboard", telegramAuth, leaderboardRoute);
+  app.get("/api/profile", telegramAuth, getProfileRoute);
+  app.patch("/api/profile", telegramAuth, patchProfileRoute);
 
   app.use((_req: Request, res: Response) => {
     res.status(404).json({ success: false, error: "not_found" });

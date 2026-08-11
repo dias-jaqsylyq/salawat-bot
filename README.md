@@ -98,6 +98,24 @@ Unauthenticated:
 **GET /api/leaderboard**
 → `200 { leaderboard: [{ nickname, total, rank }] }` — competition ranks (ties share a rank: 1, 1, 3)
 
+**GET /api/profile**
+→ `200 { nickname, dailyGoal, reminderEnabled, reminderTime }`
+- `reminderTime`: effective `HH:mm` in challenge `TIMEZONE` (`users.reminder_time` if set, else global `REMINDER_TIME`)
+→ `403 { success: false, error: "not_registered" }`
+
+**PATCH /api/profile** — body (all fields optional; at least one required): `{ nickname?, dailyGoal?, reminderEnabled?, reminderTime? }`
+- Same nickname / daily-goal rules as register
+- `reminderEnabled`: boolean
+- `reminderTime`: `HH:mm` (24h), or `null` to clear override and use global `REMINDER_TIME`
+- Rate limit: 5 requests/minute/user
+→ `200` same shape as GET
+→ `400 { success: false, error: "invalid_body" | "invalid_nickname" | "invalid_goal" | "invalid_reminder_enabled" | "invalid_reminder_time" }`
+→ `403 { success: false, error: "not_registered" }`
+→ `409 { success: false, error: "nickname_taken" }`
+→ `429 { success: false, error: "rate_limited" }`
+
+**Reminders:** a minute cron in `TIMEZONE` messages each user whose `reminder_enabled` is on and whose effective reminder time matches the current `HH:mm`. Global `REMINDER_TIME` is the default when `reminder_time` is null. Overlapping ticks are skipped while a send is in flight. No catch-up if the process was down during a user’s minute.
+
 **GET /api/admin/export?key=…** (or header `X-Admin-Key`) — CSV of `rank,nickname,telegram_id,total,daily_goal`
 - Requires `ADMIN_EXPORT_SECRET`; otherwise `503 export_disabled`
 → `401 unauthorized` if key wrong
@@ -131,4 +149,4 @@ Same idea — `npm install && npm run build`, run under `pm2`, keep `.env` on th
 - `/start`, `/help` — both reply with a short message pointing at the chat menu button, which opens the Mini App.
 
 ## Notes / v1 scope
-Per-user reminder times, group-chat announcements, multi-timezone support, and manual count correction remain out of scope. Daily goals and streaks are included via `/api/progress`. A secret-gated CSV export (`/api/admin/export`) is available for prize time. Registration, logging, progress, and leaderboard live in the Mini App — see the [`salawat-miniapp`](https://github.com/dias-jaqsylyq/salawat-miniapp) README for that side.
+Group-chat announcements, multi-timezone support, and manual count correction remain out of scope. Daily goals, streaks, and per-user reminder preferences are included via `/api/progress` and `/api/profile`. A secret-gated CSV export (`/api/admin/export`) is available for prize time. Registration, logging, progress, leaderboard, and settings live in the Mini App — see the [`salawat-miniapp`](https://github.com/dias-jaqsylyq/salawat-miniapp) README for that side.

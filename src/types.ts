@@ -3,6 +3,10 @@ export interface User {
   telegram_id: number;
   nickname: string;
   goal: number;
+  /** SQLite 0/1; default 1 (reminders on). */
+  reminder_enabled: number;
+  /** HH:mm override in challenge TIMEZONE, or null to use global REMINDER_TIME. */
+  reminder_time: string | null;
   created_at: string;
 }
 

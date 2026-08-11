@@ -23,7 +23,7 @@ function toEpochDay(parts: DateParts): number {
   return Date.UTC(parts.year, parts.month - 1, parts.day) / 86_400_000;
 }
 
-function parseReminderTime(value: string): { hour: number; minute: number } {
+export function parseReminderTime(value: string): { hour: number; minute: number } {
   const match = /^(\d{1,2}):(\d{2})$/.exec(value);
   if (!match) {
     throw new Error(`Invalid REMINDER_TIME: "${value}" (expected HH:mm)`);
@@ -34,6 +34,21 @@ function parseReminderTime(value: string): { hour: number; minute: number } {
     throw new Error(`Invalid REMINDER_TIME: "${value}" (hour must be 0–23, minute 0–59)`);
   }
   return { hour, minute };
+}
+
+/** Format {hour, minute} as zero-padded HH:mm. */
+export function formatReminderHhMm(time: { hour: number; minute: number }): string {
+  return `${String(time.hour).padStart(2, "0")}:${String(time.minute).padStart(2, "0")}`;
+}
+
+/** True if value is a valid 24h HH:mm string. */
+export function isValidReminderTime(value: string): boolean {
+  try {
+    parseReminderTime(value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 const challengeStartDate = parseDateParts("CHALLENGE_START_DATE", required("CHALLENGE_START_DATE"));
@@ -56,6 +71,8 @@ export const LOG_RATE_LIMIT_PER_MINUTE = 30;
 export const LOG_DAILY_COUNT_CAP = 50_000;
 /** Max POST /api/register requests per telegram user per rolling minute. */
 export const REGISTER_RATE_LIMIT_PER_MINUTE = 5;
+/** Max PATCH /api/profile requests per telegram user per rolling minute. */
+export const PROFILE_RATE_LIMIT_PER_MINUTE = 5;
 
 const PLACEHOLDER_MINI_APP_URL = "https://example.com/REPLACE_WITH_VERCEL_URL";
 
