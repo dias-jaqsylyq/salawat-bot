@@ -22,7 +22,7 @@ if (config.miniAppUrlIsPlaceholder) {
   }
 }
 
-createApiServer().listen(config.port, () => {
+createApiServer(bot).listen(config.port, () => {
   console.log(`API server listening on port ${config.port}`);
 });
 

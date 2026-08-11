@@ -51,6 +51,14 @@ export function isValidReminderTime(value: string): boolean {
   }
 }
 
+/** Parse an optional positive Telegram user ID. Invalid values fail closed. */
+export function parseAdminTelegramId(value: string | undefined): number | null {
+  if (!value) return null;
+  if (!/^\d+$/.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 const challengeStartDate = parseDateParts("CHALLENGE_START_DATE", required("CHALLENGE_START_DATE"));
 const challengeEndDate = parseDateParts("CHALLENGE_END_DATE", required("CHALLENGE_END_DATE"));
 
@@ -91,6 +99,11 @@ const miniAppUrlIsPlaceholder =
   miniAppUrl.includes("REPLACE_WITH_VERCEL_URL") ||
   miniAppUrl.includes("example.com");
 
+const adminTelegramId = parseAdminTelegramId(process.env.ADMIN_TELEGRAM_ID);
+if (process.env.ADMIN_TELEGRAM_ID && adminTelegramId === null) {
+  console.warn("ADMIN_TELEGRAM_ID is invalid; Mini App admin access is disabled.");
+}
+
 export const config = {
   botToken: required("BOT_TOKEN"),
   challengeStartDate,
@@ -111,4 +124,6 @@ export const config = {
   initDataMaxAgeSeconds: Number(process.env.INIT_DATA_MAX_AGE_SECONDS) || 86_400,
   /** Optional secret for GET /api/admin/export. Empty = endpoint returns 503. */
   adminExportSecret: process.env.ADMIN_EXPORT_SECRET ?? "",
+  /** Telegram user allowed to access Mini App broadcast administration. */
+  adminTelegramId,
 };

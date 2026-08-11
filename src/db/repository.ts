@@ -165,6 +165,11 @@ export function getAllUsers(): User[] {
   return db.prepare("SELECT * FROM users").all() as User[];
 }
 
+export function getParticipantCount(): number {
+  const row = db.prepare("SELECT COUNT(*) AS count FROM users").get() as { count: number };
+  return row.count;
+}
+
 /** Users who opted into daily reminders. */
 export function getUsersWithRemindersEnabled(): User[] {
   return db

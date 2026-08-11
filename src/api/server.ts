@@ -1,6 +1,9 @@
 import express, { type NextFunction, type Request, type Response } from "express";
 import cors from "cors";
+import type { Bot } from "grammy";
 import { config } from "../config.js";
+import type { MyContext } from "../context.js";
+import { requireAdmin } from "./adminAuth.js";
 import { telegramAuth } from "./authMiddleware.js";
 import { registerRoute } from "./routes/register.js";
 import { logRoute } from "./routes/log.js";
@@ -10,8 +13,14 @@ import { exportRoute } from "./routes/export.js";
 import { resetRoute } from "./routes/reset.js";
 import { getProfileRoute, patchProfileRoute } from "./routes/profile.js";
 import { putDayOverrideRoute } from "./routes/dayOverride.js";
+import { adminStatsRoute, isAdminRoute } from "./routes/adminStatus.js";
+import { createBroadcastRoute } from "./routes/broadcast.js";
+import {
+  adminPdfUpload,
+  createBroadcastFileRoute,
+} from "./routes/broadcastFile.js";
 
-export function createApiServer() {
+export function createApiServer(bot: Bot<MyContext>) {
   const app = express();
 
   const origin = config.corsOrigin === "*" ? "*" : config.corsOrigin.split(",").map((o) => o.trim());
@@ -32,6 +41,21 @@ export function createApiServer() {
   app.get("/api/leaderboard", telegramAuth, leaderboardRoute);
   app.get("/api/profile", telegramAuth, getProfileRoute);
   app.patch("/api/profile", telegramAuth, patchProfileRoute);
+  app.get("/api/is-admin", telegramAuth, isAdminRoute);
+  app.get("/api/admin/stats", telegramAuth, requireAdmin, adminStatsRoute);
+  app.post(
+    "/api/admin/broadcast",
+    telegramAuth,
+    requireAdmin,
+    createBroadcastRoute(bot)
+  );
+  app.post(
+    "/api/admin/broadcast-file",
+    telegramAuth,
+    requireAdmin,
+    adminPdfUpload,
+    createBroadcastFileRoute(bot)
+  );
 
   app.use((_req: Request, res: Response) => {
     res.status(404).json({ success: false, error: "not_found" });

@@ -34,6 +34,7 @@ Open `.env` and set:
 - `MINI_APP_DEEP_LINK` — `t.me/salawat_challenge_bot/challenge` deep link used in the daily reminder's button. Works today independent of the Vercel deployment.
 - `INIT_DATA_MAX_AGE_SECONDS` — how old a Telegram `initData` payload can be before it's rejected as stale (prefer `3600` in production; code default is 24h if unset).
 - `ADMIN_EXPORT_SECRET` — optional. When set, enables `GET /api/admin/export?key=…` for prize-time CSV download.
+- `ADMIN_TELEGRAM_ID` — numeric Telegram user id allowed to use Mini App admin broadcasts. Invalid or empty disables Mini App admin access.
 
 **Never commit `.env` or paste your bot token anywhere public.** If a token leaks, revoke it via `@BotFather` → `/revoke`.
 
@@ -125,6 +126,20 @@ Unauthenticated:
 → `429 { success: false, error: "rate_limited" }`
 
 **Reminders:** a minute cron in `TIMEZONE` messages each user whose `reminder_enabled` is on and whose effective reminder time matches the current `HH:mm`. Global `REMINDER_TIME` is the default when `reminder_time` is null. Sends **independent of** `CHALLENGE_START_DATE` / `CHALLENGE_END_DATE` (before start and after end included). Turn reminders off in Settings to stop DMs. Overlapping ticks are skipped while a send is in flight. No catch-up if the process was down during a user’s minute.
+
+**GET /api/is-admin**
+→ `200 { isAdmin: boolean }` based on authenticated Telegram id.
+
+The following Mini App admin routes require authenticated Telegram id to match `ADMIN_TELEGRAM_ID`:
+
+- **GET /api/admin/stats** → `{ participantCount }`
+- **POST /api/admin/broadcast** — JSON:
+  - `{ type: "text", message }` supports non-nested `**bold**`, `*italic*`, `_italic_`
+  - `{ type: "link", url, message? }` sends an optional caption plus previewable URL
+  - `{ type: "file", fileUrl, message? }` sends an HTTPS document URL
+- **POST /api/admin/broadcast-file** — multipart `file` (PDF, max 20 MB) and optional `message`; held in memory and forwarded as Telegram documents without disk persistence
+
+Broadcast responses are `{ success, participantCount, sentCount, failedCount }`. Sends are sequential and error-tolerant: one failed DM does not stop later recipients. A concurrent request returns `409 broadcast_in_progress`.
 
 **GET /api/admin/export?key=…** (or header `X-Admin-Key`) — CSV of `rank,nickname,telegram_id,telegram_username,telegram_first_name,telegram_last_name,total,daily_goal`
 - Requires `ADMIN_EXPORT_SECRET`; otherwise `503 export_disabled`
