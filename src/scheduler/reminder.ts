@@ -2,7 +2,6 @@ import cron from "node-cron";
 import { InlineKeyboard, type Bot } from "grammy";
 import { config, formatReminderHhMm, isValidReminderTime } from "../config.js";
 import { getUsersWithRemindersEnabled } from "../db/repository.js";
-import { isChallengeActive } from "../utils/challenge.js";
 import type { MyContext } from "../context.js";
 import type { User } from "../types.js";
 
@@ -32,7 +31,6 @@ function effectiveReminderTime(user: User): string {
 }
 
 async function sendDueReminders(bot: Bot<MyContext>) {
-  if (!isChallengeActive()) return;
   if (sending) {
     console.warn("Skipping reminder tick — previous send still in flight");
     return;

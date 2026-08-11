@@ -26,7 +26,7 @@ cp .env.example .env
 
 Open `.env` and set:
 - `BOT_TOKEN` — **your real bot token from BotFather.** Gitignored, never committed.
-- `CHALLENGE_START_DATE` / `CHALLENGE_END_DATE` — actual Gregorian dates of this year's Mawlid month, `YYYY-MM-DD` (start must be on or before end). Register/log and daily reminders are only accepted while this inclusive window is active.
+- `CHALLENGE_START_DATE` / `CHALLENGE_END_DATE` — actual Gregorian dates of this year's Mawlid month, `YYYY-MM-DD` (start must be on or before end). Registration is blocked after the end date; logging and progress still work. Daily reminders are **not** gated on this window — they send whenever enabled.
 - `TIMEZONE`, `REMINDER_TIME`, `DB_PATH` — defaults: `Asia/Hong_Kong`, `20:00`, `./data/salawat.db`.
 - `PORT` — API port (defaults to `3000` locally; Railway injects this automatically in production).
 - `CORS_ORIGIN` — origin(s) allowed to call the API. Defaults to `*` (dev only). **In production (`NODE_ENV=production`) this must be set to the real Vercel domain** (not `*`) or the process refuses to start.
@@ -124,7 +124,7 @@ Unauthenticated:
 → `409 { success: false, error: "nickname_taken" }`
 → `429 { success: false, error: "rate_limited" }`
 
-**Reminders:** a minute cron in `TIMEZONE` messages each user whose `reminder_enabled` is on and whose effective reminder time matches the current `HH:mm`. Global `REMINDER_TIME` is the default when `reminder_time` is null. Overlapping ticks are skipped while a send is in flight. No catch-up if the process was down during a user’s minute.
+**Reminders:** a minute cron in `TIMEZONE` messages each user whose `reminder_enabled` is on and whose effective reminder time matches the current `HH:mm`. Global `REMINDER_TIME` is the default when `reminder_time` is null. Sends **independent of** `CHALLENGE_START_DATE` / `CHALLENGE_END_DATE` (before start and after end included). Turn reminders off in Settings to stop DMs. Overlapping ticks are skipped while a send is in flight. No catch-up if the process was down during a user’s minute.
 
 **GET /api/admin/export?key=…** (or header `X-Admin-Key`) — CSV of `rank,nickname,telegram_id,telegram_username,telegram_first_name,telegram_last_name,total,daily_goal`
 - Requires `ADMIN_EXPORT_SECRET`; otherwise `503 export_disabled`
