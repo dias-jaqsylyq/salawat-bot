@@ -71,13 +71,23 @@ export function getUserLogsSince(
 export function getLeaderboard(): LeaderboardRow[] {
   return db
     .prepare(
-      `SELECT u.nickname AS nickname, COALESCE(SUM(l.count), 0) AS total
+      `SELECT u.nickname AS nickname,
+              u.telegram_id AS telegram_id,
+              COALESCE(SUM(l.count), 0) AS total
        FROM users u
        LEFT JOIN logs l ON l.user_id = u.id
        GROUP BY u.id
        ORDER BY total DESC, u.nickname ASC`
     )
     .all() as LeaderboardRow[];
+}
+
+/** Sum of all registered users' all-time salawat totals. */
+export function getJamaatTotal(): number {
+  const row = db
+    .prepare(`SELECT COALESCE(SUM(count), 0) AS total FROM logs`)
+    .get() as { total: number };
+  return row.total;
 }
 
 export function getAllUsers(): User[] {

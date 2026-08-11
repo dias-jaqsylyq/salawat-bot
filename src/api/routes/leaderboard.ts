@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { getLeaderboard } from "../../db/repository.js";
+import { getJamaatTotal, getLeaderboard } from "../../db/repository.js";
 
 export function leaderboardRoute(_req: Request, res: Response) {
   const rows = getLeaderboard();
@@ -9,7 +9,15 @@ export function leaderboardRoute(_req: Request, res: Response) {
     if (i > 0 && row.total < rows[i - 1]!.total) {
       rank = i + 1;
     }
-    return { nickname: row.nickname, total: row.total, rank };
+    return {
+      nickname: row.nickname,
+      total: row.total,
+      rank,
+      telegramId: row.telegram_id,
+    };
   });
-  res.json({ leaderboard });
+  res.json({
+    jamaatTotal: getJamaatTotal(),
+    leaderboard,
+  });
 }

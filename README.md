@@ -96,7 +96,10 @@ Unauthenticated:
 - `challengeStatus`: `"not_started" | "active" | "ended"`
 
 **GET /api/leaderboard**
-→ `200 { leaderboard: [{ nickname, total, rank }] }` — competition ranks (ties share a rank: 1, 1, 3)
+→ `200 { jamaatTotal, leaderboard: [{ nickname, total, rank, telegramId }] }`
+- `jamaatTotal`: sum of all registered users' all-time totals
+- `telegramId`: each user's Telegram id (for Mini App “(You)” highlighting)
+- Competition ranks (ties share a rank: 1, 1, 3)
 
 **GET /api/profile**
 → `200 { nickname, dailyGoal, reminderEnabled, reminderTime }`

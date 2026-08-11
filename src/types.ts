@@ -20,6 +20,7 @@ export interface LogEntry {
 export interface LeaderboardRow {
   nickname: string;
   total: number;
+  telegram_id: number;
 }
 
 export interface ExportRow {
