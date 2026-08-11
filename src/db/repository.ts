@@ -1,5 +1,5 @@
 import { db } from "./client.js";
-import type { ExportRow, LeaderboardRow, User } from "../types.js";
+import type { ExportRow, LeaderboardRow, TelegramProfile, User } from "../types.js";
 
 export function getUserByTelegramId(telegramId: number): User | undefined {
   return db
@@ -21,13 +21,53 @@ export function isNicknameTaken(nickname: string, excludeTelegramId?: number): b
   return row !== undefined;
 }
 
-export function createUser(telegramId: number, nickname: string, goal: number): User {
+export function createUser(
+  telegramId: number,
+  nickname: string,
+  goal: number,
+  profile: TelegramProfile = {
+    telegramUsername: null,
+    telegramFirstName: null,
+    telegramLastName: null,
+  }
+): User {
   const result = db
-    .prepare("INSERT INTO users (telegram_id, nickname, goal) VALUES (?, ?, ?)")
-    .run(telegramId, nickname, goal);
+    .prepare(
+      `INSERT INTO users (
+         telegram_id, nickname, goal,
+         telegram_username, telegram_first_name, telegram_last_name
+       ) VALUES (?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      telegramId,
+      nickname,
+      goal,
+      profile.telegramUsername,
+      profile.telegramFirstName,
+      profile.telegramLastName
+    );
   return getUserByTelegramId(telegramId) ?? (() => {
     throw new Error(`Failed to load user just created (rowid ${result.lastInsertRowid})`);
   })();
+}
+
+/** Refresh Telegram profile fields if the user is already registered; no-op otherwise. */
+export function updateTelegramProfileIfRegistered(
+  telegramId: number,
+  profile: TelegramProfile
+): void {
+  db.prepare(
+    `UPDATE users
+     SET telegram_username = ?,
+         telegram_first_name = ?,
+         telegram_last_name = ?
+     WHERE telegram_id = ?`
+  ).run(
+    profile.telegramUsername,
+    profile.telegramFirstName,
+    profile.telegramLastName,
+    telegramId
+  );
 }
 
 export function addLog(userId: number, count: number): void {
@@ -164,12 +204,15 @@ export function updateUserProfile(telegramId: number, update: UserProfileUpdate)
   })();
 }
 
-/** Full leaderboard rows for admin CSV export (includes telegram_id + goal). */
+/** Full leaderboard rows for admin CSV export (includes telegram_id + goal + profile). */
 export function getExportRows(): ExportRow[] {
   return db
     .prepare(
       `SELECT u.nickname AS nickname,
               u.telegram_id AS telegram_id,
+              u.telegram_username AS telegram_username,
+              u.telegram_first_name AS telegram_first_name,
+              u.telegram_last_name AS telegram_last_name,
               u.goal AS goal,
               COALESCE(SUM(l.count), 0) AS total
        FROM users u

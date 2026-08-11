@@ -5,6 +5,9 @@ CREATE TABLE IF NOT EXISTS users (
   goal INTEGER NOT NULL,
   reminder_enabled INTEGER NOT NULL DEFAULT 1,
   reminder_time TEXT,
+  telegram_username TEXT,
+  telegram_first_name TEXT,
+  telegram_last_name TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

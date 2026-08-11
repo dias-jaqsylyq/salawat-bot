@@ -1,11 +1,14 @@
 import type { NextFunction, Request, Response } from "express";
 import { config } from "../config.js";
+import { updateTelegramProfileIfRegistered } from "../db/repository.js";
+import type { TelegramProfile } from "../types.js";
 import { InitDataError, validateInitData } from "./initData.js";
 
 declare global {
   namespace Express {
     interface Request {
       telegramId: number;
+      telegramProfile: TelegramProfile;
     }
   }
 }
@@ -21,8 +24,15 @@ export function telegramAuth(req: Request, res: Response, next: NextFunction) {
 
   const initDataRaw = header.slice(AUTH_HEADER_PREFIX.length);
   try {
-    const { telegramId } = validateInitData(initDataRaw, config.botToken, config.initDataMaxAgeSeconds);
-    req.telegramId = telegramId;
+    const validated = validateInitData(initDataRaw, config.botToken, config.initDataMaxAgeSeconds);
+    req.telegramId = validated.telegramId;
+    req.telegramProfile = {
+      telegramUsername: validated.telegramUsername,
+      telegramFirstName: validated.telegramFirstName,
+      telegramLastName: validated.telegramLastName,
+    };
+    // Keep stored Telegram names fresh for registered users (also backfills pre-migration nulls).
+    updateTelegramProfileIfRegistered(req.telegramId, req.telegramProfile);
     next();
   } catch (err) {
     if (err instanceof InitDataError) {

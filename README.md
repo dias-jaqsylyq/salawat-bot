@@ -103,9 +103,9 @@ Unauthenticated:
 - → `403 { success: false, error: "not_registered" }`
 
 **GET /api/leaderboard**
-→ `200 { jamaatTotal, leaderboard: [{ nickname, total, rank, telegramId }] }`
+→ `200 { jamaatTotal, leaderboard: [{ nickname, total, rank, isYou }] }`
 - `jamaatTotal`: sum of all registered users' all-time totals
-- `telegramId`: each user's Telegram id (for Mini App “(You)” highlighting)
+- `isYou`: `true` for the authenticated requester's row (for Mini App “(You)” highlighting) — Telegram ids are not exposed
 - Competition ranks (ties share a rank: 1, 1, 3)
 
 **GET /api/profile**
@@ -126,8 +126,9 @@ Unauthenticated:
 
 **Reminders:** a minute cron in `TIMEZONE` messages each user whose `reminder_enabled` is on and whose effective reminder time matches the current `HH:mm`. Global `REMINDER_TIME` is the default when `reminder_time` is null. Overlapping ticks are skipped while a send is in flight. No catch-up if the process was down during a user’s minute.
 
-**GET /api/admin/export?key=…** (or header `X-Admin-Key`) — CSV of `rank,nickname,telegram_id,total,daily_goal`
+**GET /api/admin/export?key=…** (or header `X-Admin-Key`) — CSV of `rank,nickname,telegram_id,telegram_username,telegram_first_name,telegram_last_name,total,daily_goal`
 - Requires `ADMIN_EXPORT_SECRET`; otherwise `503 export_disabled`
+- Telegram profile name fields are stored from `initData.user` at registration and refreshed on later authenticated requests; existing users stay null until they open the app again
 → `401 unauthorized` if key wrong
 
 ## Deploying (Railway)
