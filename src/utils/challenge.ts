@@ -64,6 +64,88 @@ export function getDayKeyInTimezone(now: Date = new Date()): string {
   return formatDateParts(getTodayInTimezone(config.timezone, now));
 }
 
+function addOneCalendarDay(parts: DateParts): DateParts {
+  const next = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + 1));
+  return { year: next.getUTCFullYear(), month: next.getUTCMonth() + 1, day: next.getUTCDate() };
+}
+
+/** Convert a wall-clock time in `timeZone` to the corresponding UTC Date. */
+function zonedTimeToUtc(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  second: number,
+  timeZone: string
+): Date {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+
+  const read = (date: Date) => {
+    const parts = dtf.formatToParts(date);
+    const get = (type: Intl.DateTimeFormatPartTypes) =>
+      Number(parts.find((p) => p.type === type)?.value);
+    return {
+      year: get("year"),
+      month: get("month"),
+      day: get("day"),
+      hour: get("hour"),
+      minute: get("minute"),
+      second: get("second"),
+    };
+  };
+
+  // Guess: treat the wall time as UTC, then correct using the zone's offset.
+  let utcMillis = Date.UTC(year, month - 1, day, hour, minute, second);
+  for (let i = 0; i < 2; i++) {
+    const got = read(new Date(utcMillis));
+    const asUtc = Date.UTC(got.year, got.month - 1, got.day, got.hour, got.minute, got.second);
+    const want = Date.UTC(year, month - 1, day, hour, minute, second);
+    utcMillis += want - asUtc;
+  }
+  return new Date(utcMillis);
+}
+
+/** Format a Date as UTC `YYYY-MM-DD HH:MM:SS` to match SQLite `datetime('now')`. */
+function formatSqliteUtc(date: Date): string {
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(date.getUTCDate()).padStart(2, "0");
+  const hh = String(date.getUTCHours()).padStart(2, "0");
+  const mm = String(date.getUTCMinutes()).padStart(2, "0");
+  const ss = String(date.getUTCSeconds()).padStart(2, "0");
+  return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+}
+
+/**
+ * UTC half-open [start, end) for the calendar day containing `now` in `TIMEZONE`.
+ * String format matches `logs.logged_at` (`datetime('now')` UTC text).
+ */
+export function getTodayUtcRange(now: Date = new Date()): { startUtc: string; endUtc: string } {
+  const today = getTodayInTimezone(config.timezone, now);
+  const tomorrow = addOneCalendarDay(today);
+  const start = zonedTimeToUtc(today.year, today.month, today.day, 0, 0, 0, config.timezone);
+  const end = zonedTimeToUtc(
+    tomorrow.year,
+    tomorrow.month,
+    tomorrow.day,
+    0,
+    0,
+    0,
+    config.timezone
+  );
+  return { startUtc: formatSqliteUtc(start), endUtc: formatSqliteUtc(end) };
+}
+
 export function getPercentComplete(total: number, goal: number): number {
   if (goal <= 0) return 0;
   return Math.min(100, Math.round((total / goal) * 1000) / 10); // one decimal place, capped at 100

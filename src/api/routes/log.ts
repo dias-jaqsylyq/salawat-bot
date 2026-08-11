@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
-import { addLog, getUserByTelegramId, getUserTotal } from "../../db/repository.js";
+import { addLog, getUserByTelegramId, getUserTodayTotal, getUserTotal } from "../../db/repository.js";
+import { getTodayUtcRange } from "../../utils/challenge.js";
 
 const MAX_LOG_COUNT = 10_000;
 
@@ -24,12 +25,14 @@ export function logRoute(req: Request, res: Response) {
 
   const currentTotal = getUserTotal(user.id);
   const newTotal = currentTotal + count;
-  
+
   if (newTotal < 0) {
     res.status(400).json({ success: false, error: "would_result_in_negative_total" });
     return;
   }
 
   addLog(user.id, count);
-  res.json({ success: true, newTotal });
+  const { startUtc, endUtc } = getTodayUtcRange();
+  const newTodayTotal = getUserTodayTotal(user.id, startUtc, endUtc);
+  res.json({ success: true, newTotal, newTodayTotal });
 }

@@ -1,11 +1,12 @@
 import type { Request, Response } from "express";
 import { config } from "../../config.js";
-import { getUserByTelegramId, getUserTotal } from "../../db/repository.js";
+import { getUserByTelegramId, getUserTodayTotal, getUserTotal } from "../../db/repository.js";
 import {
   formatDateParts,
   getChallengeStatus,
   getDaysLeft,
   getPercentComplete,
+  getTodayUtcRange,
 } from "../../utils/challenge.js";
 
 function challengeMeta() {
@@ -24,10 +25,13 @@ export function progressRoute(req: Request, res: Response) {
   }
 
   const total = getUserTotal(user.id);
+  const { startUtc, endUtc } = getTodayUtcRange();
+  const todayTotal = getUserTodayTotal(user.id, startUtc, endUtc);
   res.json({
     registered: true,
     nickname: user.nickname,
     total,
+    todayTotal,
     goal: user.goal,
     percentComplete: getPercentComplete(total, user.goal),
     daysLeft: getDaysLeft(),

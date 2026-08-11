@@ -41,6 +41,18 @@ export function getUserTotal(userId: number): number {
   return row.total;
 }
 
+/** Sum of logs for a user in the half-open UTC window [startUtc, endUtc). */
+export function getUserTodayTotal(userId: number, startUtc: string, endUtc: string): number {
+  const row = db
+    .prepare(
+      `SELECT COALESCE(SUM(count), 0) AS total
+       FROM logs
+       WHERE user_id = ? AND logged_at >= ? AND logged_at < ?`
+    )
+    .get(userId, startUtc, endUtc) as { total: number };
+  return row.total;
+}
+
 export function getLeaderboard(): LeaderboardRow[] {
   return db
     .prepare(

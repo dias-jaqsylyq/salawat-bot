@@ -80,14 +80,15 @@ Unauthenticated:
 **POST /api/log** — body `{ count: number }`
 - `count`: integer, `1`…`10000` inclusive
 - Rate limits: 30 requests/minute/user and 50_000 salawat/calendar day (challenge `TIMEZONE`)
-→ `200 { success: true, newTotal: number }`
+→ `200 { success: true, newTotal: number, newTodayTotal: number }`
 → `400 { success: false, error: "invalid_count" }`
 → `403 { success: false, error: "not_registered" | "challenge_not_started" | "challenge_ended" }`
 → `429 { success: false, error: "rate_limited" }`
 
 **GET /api/progress**
 → `200 { registered: false, challengeStatus, challengeStartDate, challengeEndDate }` if not yet registered
-→ `200 { registered: true, nickname, total, goal, percentComplete, daysLeft, challengeStatus, challengeStartDate, challengeEndDate }`
+→ `200 { registered: true, nickname, total, todayTotal, goal, percentComplete, daysLeft, challengeStatus, challengeStartDate, challengeEndDate }`
+- `todayTotal` / `newTodayTotal`: salawat logged so far on the current calendar day in `TIMEZONE` (not UTC midnight)
 - `challengeStatus`: `"not_started" | "active" | "ended"`
 - `percentComplete`: capped at 100
 
