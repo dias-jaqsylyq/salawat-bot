@@ -9,11 +9,12 @@ import { registerRoute } from "./routes/register.js";
 import { logRoute } from "./routes/log.js";
 import { progressRoute } from "./routes/progress.js";
 import { leaderboardRoute } from "./routes/leaderboard.js";
-import { exportRoute } from "./routes/export.js";
+import { adminExportCsvRoute, exportRoute } from "./routes/export.js";
 import { resetRoute } from "./routes/reset.js";
 import { getProfileRoute, patchProfileRoute } from "./routes/profile.js";
 import { putDayOverrideRoute } from "./routes/dayOverride.js";
 import { adminStatsRoute, isAdminRoute } from "./routes/adminStatus.js";
+import { adminLeaderboardRoute } from "./routes/adminLeaderboard.js";
 import { createBroadcastRoute } from "./routes/broadcast.js";
 import {
   adminPdfUpload,
@@ -43,6 +44,18 @@ export function createApiServer(bot: Bot<MyContext>) {
   app.patch("/api/profile", telegramAuth, patchProfileRoute);
   app.get("/api/is-admin", telegramAuth, isAdminRoute);
   app.get("/api/admin/stats", telegramAuth, requireAdmin, adminStatsRoute);
+  app.get(
+    "/api/admin/leaderboard",
+    telegramAuth,
+    requireAdmin,
+    adminLeaderboardRoute
+  );
+  app.get(
+    "/api/admin/export-csv",
+    telegramAuth,
+    requireAdmin,
+    adminExportCsvRoute
+  );
   app.post(
     "/api/admin/broadcast",
     telegramAuth,

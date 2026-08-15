@@ -30,7 +30,10 @@ function effectiveReminderTime(user: User): string {
   return formatReminderHhMm(config.reminderTime);
 }
 
-async function sendDueReminders(bot: Bot<MyContext>) {
+export async function sendDueReminders(
+  bot: Bot<MyContext>,
+  now: Date = new Date()
+) {
   if (sending) {
     console.warn("Skipping reminder tick — previous send still in flight");
     return;
@@ -38,7 +41,7 @@ async function sendDueReminders(bot: Bot<MyContext>) {
 
   sending = true;
   try {
-    const nowHhMm = currentHhMmInTimezone();
+    const nowHhMm = currentHhMmInTimezone(now);
     const users = getUsersWithRemindersEnabled();
     for (const user of users) {
       if (effectiveReminderTime(user) !== nowHhMm) continue;

@@ -26,7 +26,7 @@ cp .env.example .env
 
 Open `.env` and set:
 - `BOT_TOKEN` — **your real bot token from BotFather.** Gitignored, never committed.
-- `CHALLENGE_START_DATE` / `CHALLENGE_END_DATE` — actual Gregorian dates of this year's Mawlid month, `YYYY-MM-DD` (start must be on or before end). Registration is blocked after the end date; logging and progress still work. Daily reminders are **not** gated on this window — they send whenever enabled.
+- `CHALLENGE_START_DATE` / `CHALLENGE_END_DATE` — informational Gregorian bounds of this year's Mawlid period, `YYYY-MM-DD` (start must be on or before end). They never gate registration, logging, streaks, or reminders; only Admin Mawlid results/CSV use them as a filter.
 - `TIMEZONE`, `REMINDER_TIME`, `DB_PATH` — defaults: `Asia/Hong_Kong`, `20:00`, `./data/salawat.db`.
 - `PORT` — API port (defaults to `3000` locally; Railway injects this automatically in production).
 - `CORS_ORIGIN` — origin(s) allowed to call the API. Defaults to `*` (dev only). **In production (`NODE_ENV=production`) this must be set to the real Vercel domain** (not `*`) or the process refuses to start.
@@ -74,7 +74,6 @@ Unauthenticated:
 - `goal`: **daily** salawat target — integer, `1`…`100000000` inclusive (stored as `users.goal`)
 → `200 { success: true, user: { id, nickname, goal } }` (idempotent — calling it again for an already-registered user just returns their existing record unchanged)
 → `400 { success: false, error: "invalid_nickname" | "invalid_goal" }`
-→ `403 { success: false, error: "challenge_not_started" | "challenge_ended" }`
 → `409 { success: false, error: "nickname_taken" }`
 → `429 { success: false, error: "rate_limited" }`
 
@@ -83,7 +82,7 @@ Unauthenticated:
 - Rate limits: 30 requests/minute/user and 50_000 salawat/calendar day (challenge `TIMEZONE`)
 → `200 { success: true, newTotal: number, newTodayTotal: number }`
 → `400 { success: false, error: "invalid_count" }`
-→ `403 { success: false, error: "not_registered" | "challenge_not_started" | "challenge_ended" }`
+→ `403 { success: false, error: "not_registered" }`
 → `429 { success: false, error: "rate_limited" }`
 
 **GET /api/progress**
@@ -92,13 +91,13 @@ Unauthenticated:
 - `total`: all-time sum
 - `todayTotal` / `newTodayTotal`: salawat logged so far on the current calendar day in `TIMEZONE` (not UTC midnight)
 - `dailyGoal`: daily target (`users.goal`)
-- `streak`: consecutive TIMEZONE days (walking backward from today) where that day is effectively met. Today uses live logs only (overrides ignored). Past days use a per-day override when set, otherwise `total ≥ dailyGoal`. Streak does not extend before `CHALLENGE_START_DATE`.
-- `last7Days`: array of 7 `{ date, total, metGoal, locked }` entries, oldest → newest, ending with today (`date` is `YYYY-MM-DD` in `TIMEZONE`). `total` is always from logs; `metGoal` for past days follows override when present. Days before `max(CHALLENGE_START_DATE, user.created_at day)` have `locked: true` (not missed / not makeup-eligible).
+- `streak`: consecutive TIMEZONE days (walking backward from today) where that day is effectively met. Today uses live logs only (overrides ignored). Past days use a per-day override when set, otherwise `total ≥ dailyGoal`. Streak does not extend before the user's registration day.
+- `last7Days`: array of 7 `{ date, total, metGoal, locked }` entries, oldest → newest, ending with today (`date` is `YYYY-MM-DD` in `TIMEZONE`). `total` is always from logs; `metGoal` for past days follows override when present. Days before the user's registration day have `locked: true` (not missed / not makeup-eligible).
 - `challengeStatus`: `"not_started" | "active" | "ended"`
 
 **PUT /api/day-override** — body `{ date: string, met: boolean }`
 - Sets a per-day met/missed override for makeup (does **not** change logged salawat totals)
-- `date` must be a past day in the visible last-7 window (`today-6` … `today-1` in `TIMEZONE`); today, future, and days before the user’s eligibility floor (`max(CHALLENGE_START_DATE, registration day)`) are rejected
+- `date` must be a past day in the visible last-7 window (`today-6` … `today-1` in `TIMEZONE`); today, future, and days before registration are rejected
 - → `200 { success: true, streak, last7Days }`
 - → `400 { success: false, error: "invalid_date" | "invalid_met" | "date_not_editable" }`
 - → `403 { success: false, error: "not_registered" }`
@@ -132,7 +131,9 @@ Unauthenticated:
 
 The following Mini App admin routes require authenticated Telegram id to match `ADMIN_TELEGRAM_ID`:
 
-- **GET /api/admin/stats** → `{ participantCount }`
+- **GET /api/admin/stats** → `{ participantCount, mawlidStartDate, mawlidEndDate }`
+- **GET /api/admin/leaderboard?period=all|mawlid** → live ranked totals for all logs or only the configured Mawlid period
+- **GET /api/admin/export-csv?period=all|mawlid** → authenticated CSV download for the selected result period
 - **POST /api/admin/broadcast** — JSON:
   - `{ type: "text", message }` supports non-nested `**bold**`, `*italic*`, `_italic_`
   - `{ type: "link", url, message? }` sends an optional caption plus previewable URL
@@ -141,7 +142,7 @@ The following Mini App admin routes require authenticated Telegram id to match `
 
 Broadcast responses are `{ success, participantCount, sentCount, failedCount }`. Sends are sequential and error-tolerant: one failed DM does not stop later recipients. A concurrent request returns `409 broadcast_in_progress`.
 
-**GET /api/admin/export?key=…** (or header `X-Admin-Key`) — CSV of `rank,nickname,telegram_id,telegram_username,telegram_first_name,telegram_last_name,total,daily_goal`
+**GET /api/admin/export?key=…&period=all|mawlid** (or header `X-Admin-Key`) — CSV of `rank,nickname,telegram_id,telegram_username,telegram_first_name,telegram_last_name,total,daily_goal`; defaults to all-time
 - Requires `ADMIN_EXPORT_SECRET`; otherwise `503 export_disabled`
 - Telegram profile name fields are stored from `initData.user` at registration and refreshed on later authenticated requests; existing users stay null until they open the app again
 → `401 unauthorized` if key wrong

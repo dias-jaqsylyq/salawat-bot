@@ -38,7 +38,7 @@ export function putDayOverrideRoute(req: Request, res: Response) {
     return;
   }
 
-  // Days before the user was eligible (challenge start / registration) are locked.
+  // Days before the user registered are locked.
   if (date < earliestEligibleKey) {
     res.status(400).json({ success: false, error: "date_not_editable" });
     return;

@@ -5,7 +5,7 @@ import {
   getUserTodayTotal,
   getUserTotal,
 } from "../../db/repository.js";
-import type { DateParts, User } from "../../types.js";
+import type { User } from "../../types.js";
 import {
   dayKeyFromSqliteUtc,
   formatDateParts,
@@ -17,12 +17,6 @@ import {
   subtractOneCalendarDay,
 } from "../../utils/challenge.js";
 import { bucketLogsByDay, buildLast7Days, computeStreak } from "../../utils/streak.js";
-
-function maxDateParts(a: DateParts, b: DateParts): DateParts {
-  const aEpoch = Date.UTC(a.year, a.month - 1, a.day);
-  const bEpoch = Date.UTC(b.year, b.month - 1, b.day);
-  return aEpoch >= bEpoch ? a : b;
-}
 
 /** Shared streak + last7Days (+ totals) for progress and day-override responses. */
 export function computeUserProgressFields(user: User) {
@@ -37,19 +31,17 @@ export function computeUserProgressFields(user: User) {
   }
   const windowStartKey = formatDateParts(windowStart);
   const todayKey = formatDateParts(todayParts);
-  const challengeStartKey = formatDateParts(config.challengeStartDate);
 
-  // Floor eligibility at the later of challenge start and the user's registration day.
+  // A user becomes eligible on their own registration day, regardless of the
+  // informational Mawlid start/end dates.
   const registrationKey = dayKeyFromSqliteUtc(user.created_at, config.timezone);
   const registrationParts = parseDateKey(registrationKey);
-  const earliestEligible = maxDateParts(config.challengeStartDate, registrationParts);
-  const earliestEligibleKey = formatDateParts(earliestEligible);
+  const earliestEligibleKey = registrationKey;
 
-  // Fetch logs from the earlier of challenge start and the visible 7-day window.
+  // Fetch enough history for the complete streak as well as the visible week.
   const logsFromKey =
-    windowStartKey < challengeStartKey ? windowStartKey : challengeStartKey;
-  const logsFromParts =
-    logsFromKey === challengeStartKey ? config.challengeStartDate : windowStart;
+    windowStartKey < registrationKey ? windowStartKey : registrationKey;
+  const logsFromParts = parseDateKey(logsFromKey);
   const logsStartUtc = getUtcRangeForDate(logsFromParts).startUtc;
 
   const logs = getUserLogsSince(user.id, logsStartUtc);
@@ -57,20 +49,20 @@ export function computeUserProgressFields(user: User) {
     dayKeyFromSqliteUtc(loggedAt, config.timezone)
   );
 
-  const overrides = getDayOverrides(user.id, windowStartKey, todayKey);
+  const overrides = getDayOverrides(user.id, registrationKey, todayKey);
   const dailyGoal = user.goal;
   const streak = computeStreak(
     dailyGoal,
     totalsByDate,
     todayParts,
-    earliestEligible,
+    registrationParts,
     overrides
   );
   const last7Days = buildLast7Days(
     dailyGoal,
     totalsByDate,
     todayParts,
-    earliestEligible,
+    registrationParts,
     overrides
   );
 

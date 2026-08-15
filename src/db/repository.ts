@@ -1,6 +1,11 @@
 import { db } from "./client.js";
 import type { ExportRow, LeaderboardRow, TelegramProfile, User } from "../types.js";
 
+export interface LogWindow {
+  startUtc: string;
+  endUtc: string;
+}
+
 export function getUserByTelegramId(telegramId: number): User | undefined {
   return db
     .prepare("SELECT * FROM users WHERE telegram_id = ?")
@@ -139,25 +144,29 @@ export function upsertDayOverride(userId: number, day: string, met: boolean): vo
   ).run(userId, day, met ? 1 : 0);
 }
 
-export function getLeaderboard(): LeaderboardRow[] {
+export function getLeaderboard(window?: LogWindow): LeaderboardRow[] {
+  const dateJoin = window
+    ? "AND l.logged_at >= ? AND l.logged_at < ?"
+    : "";
   return db
     .prepare(
       `SELECT u.nickname AS nickname,
               u.telegram_id AS telegram_id,
               COALESCE(SUM(l.count), 0) AS total
        FROM users u
-       LEFT JOIN logs l ON l.user_id = u.id
+       LEFT JOIN logs l ON l.user_id = u.id ${dateJoin}
        GROUP BY u.id
        ORDER BY total DESC, u.nickname ASC`
     )
-    .all() as LeaderboardRow[];
+    .all(...(window ? [window.startUtc, window.endUtc] : [])) as LeaderboardRow[];
 }
 
-/** Sum of all registered users' all-time salawat totals. */
-export function getJamaatTotal(): number {
+/** Sum all logs, optionally restricted to a UTC half-open window. */
+export function getJamaatTotal(window?: LogWindow): number {
+  const where = window ? "WHERE logged_at >= ? AND logged_at < ?" : "";
   const row = db
-    .prepare(`SELECT COALESCE(SUM(count), 0) AS total FROM logs`)
-    .get() as { total: number };
+    .prepare(`SELECT COALESCE(SUM(count), 0) AS total FROM logs ${where}`)
+    .get(...(window ? [window.startUtc, window.endUtc] : [])) as { total: number };
   return row.total;
 }
 
@@ -225,7 +234,10 @@ export function resetAllChallengeData(): {
 }
 
 /** Full leaderboard rows for admin CSV export (includes telegram_id + goal + profile). */
-export function getExportRows(): ExportRow[] {
+export function getExportRows(window?: LogWindow): ExportRow[] {
+  const dateJoin = window
+    ? "AND l.logged_at >= ? AND l.logged_at < ?"
+    : "";
   return db
     .prepare(
       `SELECT u.nickname AS nickname,
@@ -236,9 +248,9 @@ export function getExportRows(): ExportRow[] {
               u.goal AS goal,
               COALESCE(SUM(l.count), 0) AS total
        FROM users u
-       LEFT JOIN logs l ON l.user_id = u.id
+       LEFT JOIN logs l ON l.user_id = u.id ${dateJoin}
        GROUP BY u.id
        ORDER BY total DESC, u.nickname ASC`
     )
-    .all() as ExportRow[];
+    .all(...(window ? [window.startUtc, window.endUtc] : [])) as ExportRow[];
 }

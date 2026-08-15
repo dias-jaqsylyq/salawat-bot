@@ -52,11 +52,6 @@ export function hasChallengeEnded(now: Date = new Date()): boolean {
   return toEpochDay(today) > toEpochDay(config.challengeEndDate);
 }
 
-/** Inclusive window: started and not yet past the end date. */
-export function isChallengeActive(now: Date = new Date()): boolean {
-  return hasChallengeStarted(now) && !hasChallengeEnded(now);
-}
-
 export type ChallengeStatus = "not_started" | "active" | "ended";
 
 export function getChallengeStatus(now: Date = new Date()): ChallengeStatus {
@@ -155,6 +150,17 @@ export function getUtcRangeForDate(
  */
 export function getTodayUtcRange(now: Date = new Date()): { startUtc: string; endUtc: string } {
   return getUtcRangeForDate(getTodayInTimezone(config.timezone, now), config.timezone);
+}
+
+/**
+ * Informational Mawlid period as a UTC half-open range. The configured end
+ * calendar date is inclusive in TIMEZONE.
+ */
+export function getChallengeWindowUtc(): { startUtc: string; endUtc: string } {
+  return {
+    startUtc: getUtcRangeForDate(config.challengeStartDate, config.timezone).startUtc,
+    endUtc: getUtcRangeForDate(config.challengeEndDate, config.timezone).endUtc,
+  };
 }
 
 /**

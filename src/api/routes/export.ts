@@ -1,6 +1,12 @@
 import type { Request, Response } from "express";
 import { config } from "../../config.js";
 import { getExportRows } from "../../db/repository.js";
+import {
+  exportFilename,
+  logWindowForPeriod,
+  parseLeaderboardPeriod,
+  type LeaderboardPeriod,
+} from "../adminPeriod.js";
 
 /**
  * Prize-time CSV export. Auth: ?key= or X-Admin-Key header matching ADMIN_EXPORT_SECRET.
@@ -22,7 +28,31 @@ export function exportRoute(req: Request, res: Response) {
     return;
   }
 
-  const rows = getExportRows();
+  sendPeriodCsv(req, res);
+}
+
+/** Telegram-initData + requireAdmin auth is applied in server.ts. */
+export function adminExportCsvRoute(req: Request, res: Response): void {
+  sendPeriodCsv(req, res);
+}
+
+function sendPeriodCsv(req: Request, res: Response): void {
+  const period = parseLeaderboardPeriod(req.query.period);
+  if (!period) {
+    res.status(400).json({ success: false, error: "invalid_period" });
+    return;
+  }
+  const csv = buildExportCsv(period);
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${exportFilename(period)}"`
+  );
+  res.send(csv);
+}
+
+export function buildExportCsv(period: LeaderboardPeriod): string {
+  const rows = getExportRows(logWindowForPeriod(period));
   let rank = 1;
   const ranked = rows.map((row, i) => {
     if (i > 0 && row.total < rows[i - 1]!.total) {
@@ -39,9 +69,7 @@ export function exportRoute(req: Request, res: Response) {
     ),
   ];
 
-  res.setHeader("Content-Type", "text/csv; charset=utf-8");
-  res.setHeader("Content-Disposition", 'attachment; filename="salawat-export.csv"');
-  res.send(lines.join("\n") + "\n");
+  return lines.join("\n") + "\n";
 }
 
 function csvEscape(value: string): string {

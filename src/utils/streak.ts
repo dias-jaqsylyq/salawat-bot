@@ -9,7 +9,7 @@ export interface DayBreakdown {
   date: string;
   total: number;
   metGoal: boolean;
-  /** True for days before the user was eligible (challenge start / registration). */
+  /** True for days before the user registered. */
   locked: boolean;
 }
 
@@ -35,7 +35,7 @@ function isBefore(day: DateParts, earliest: DateParts): boolean {
  * - Today counts only from real logs (overrides ignored — today is locked).
  * - If today is unmet, walking starts at yesterday (today still in progress).
  * - Past days use effectiveMet (override authoritative when present).
- * - Days before `earliestParts` (challenge start / registration) stop the walk.
+ * - Days before `earliestParts` (the user's registration day) stop the walk.
  */
 export function computeStreak(
   dailyGoal: number,
