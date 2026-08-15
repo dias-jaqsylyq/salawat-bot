@@ -104,7 +104,7 @@ Unauthenticated:
 
 **GET /api/leaderboard**
 → `200 { jamaatTotal, leaderboard: [{ nickname, total, rank, isYou }] }`
-- `jamaatTotal`: sum of all registered users' all-time totals
+- `jamaatTotal`: active log sums plus contributions retained by users who reset without dropping from Jamaat; individual leaderboard rows show active personal totals only
 - `isYou`: `true` for the authenticated requester's row (for Mini App “(You)” highlighting) — Telegram ids are not exposed
 - Competition ranks (ties share a rank: 1, 1, 3)
 
@@ -123,6 +123,16 @@ Unauthenticated:
 → `403 { success: false, error: "not_registered" }`
 → `409 { success: false, error: "nickname_taken" }`
 → `429 { success: false, error: "rate_limited" }`
+
+**POST /api/reset-progress** — body `{ dropFromJamaat?: boolean }` (defaults `false`)
+- Deletes the authenticated user's logs and day-goal overrides; keeps nickname, goal, Telegram profile, and reminder settings
+- Starts a new personal progress epoch so pre-reset days are locked/not missed
+- `dropFromJamaat: false`: moves the current net total into a retained all-time Jamaat counter, keeping `jamaatTotal` unchanged
+- `dropFromJamaat: true`: clears active and previously retained contribution for that user
+- Retained contribution affects unfiltered all-time Jamaat total only; Mawlid filtered totals/CSV remain based on timestamped active logs
+→ `200 { success: true, dropFromJamaat, total: 0, deleted: { logs, dayGoalOverrides } }`
+→ `400 invalid_drop_from_jamaat`
+→ `403 not_registered`
 
 **Reminders:** a minute cron in `TIMEZONE` messages each user whose `reminder_enabled` is on and whose effective reminder time matches the current `HH:mm`. Global `REMINDER_TIME` is the default when `reminder_time` is null. Sends **independent of** `CHALLENGE_START_DATE` / `CHALLENGE_END_DATE` (before start and after end included). Turn reminders off in Settings to stop DMs. Overlapping ticks are skipped while a send is in flight. No catch-up if the process was down during a user’s minute.
 

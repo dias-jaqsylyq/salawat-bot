@@ -11,6 +11,10 @@ export interface User {
   telegram_username: string | null;
   telegram_first_name: string | null;
   telegram_last_name: string | null;
+  /** Prior net logs retained only in the unfiltered Jamaat total after a soft reset. */
+  retained_jamaat_total: number;
+  /** Current personal-progress epoch; null means original registration time. */
+  progress_started_at: string | null;
   created_at: string;
 }
 

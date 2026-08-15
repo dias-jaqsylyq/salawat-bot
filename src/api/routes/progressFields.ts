@@ -32,15 +32,15 @@ export function computeUserProgressFields(user: User) {
   const windowStartKey = formatDateParts(windowStart);
   const todayKey = formatDateParts(todayParts);
 
-  // A user becomes eligible on their own registration day, regardless of the
-  // informational Mawlid start/end dates.
-  const registrationKey = dayKeyFromSqliteUtc(user.created_at, config.timezone);
-  const registrationParts = parseDateKey(registrationKey);
-  const earliestEligibleKey = registrationKey;
+  // Personal progress starts at registration, or at the latest reset epoch.
+  const progressStart = user.progress_started_at ?? user.created_at;
+  const progressStartKey = dayKeyFromSqliteUtc(progressStart, config.timezone);
+  const progressStartParts = parseDateKey(progressStartKey);
+  const earliestEligibleKey = progressStartKey;
 
   // Fetch enough history for the complete streak as well as the visible week.
   const logsFromKey =
-    windowStartKey < registrationKey ? windowStartKey : registrationKey;
+    windowStartKey < progressStartKey ? windowStartKey : progressStartKey;
   const logsFromParts = parseDateKey(logsFromKey);
   const logsStartUtc = getUtcRangeForDate(logsFromParts).startUtc;
 
@@ -49,20 +49,20 @@ export function computeUserProgressFields(user: User) {
     dayKeyFromSqliteUtc(loggedAt, config.timezone)
   );
 
-  const overrides = getDayOverrides(user.id, registrationKey, todayKey);
+  const overrides = getDayOverrides(user.id, progressStartKey, todayKey);
   const dailyGoal = user.goal;
   const streak = computeStreak(
     dailyGoal,
     totalsByDate,
     todayParts,
-    registrationParts,
+    progressStartParts,
     overrides
   );
   const last7Days = buildLast7Days(
     dailyGoal,
     totalsByDate,
     todayParts,
-    registrationParts,
+    progressStartParts,
     overrides
   );
 

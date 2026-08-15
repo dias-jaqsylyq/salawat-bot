@@ -11,6 +11,7 @@ import { progressRoute } from "./routes/progress.js";
 import { leaderboardRoute } from "./routes/leaderboard.js";
 import { adminExportCsvRoute, exportRoute } from "./routes/export.js";
 import { resetRoute } from "./routes/reset.js";
+import { resetProgressRoute } from "./routes/resetProgress.js";
 import { getProfileRoute, patchProfileRoute } from "./routes/profile.js";
 import { putDayOverrideRoute } from "./routes/dayOverride.js";
 import { adminStatsRoute, isAdminRoute } from "./routes/adminStatus.js";
@@ -42,6 +43,7 @@ export function createApiServer(bot: Bot<MyContext>) {
   app.get("/api/leaderboard", telegramAuth, leaderboardRoute);
   app.get("/api/profile", telegramAuth, getProfileRoute);
   app.patch("/api/profile", telegramAuth, patchProfileRoute);
+  app.post("/api/reset-progress", telegramAuth, resetProgressRoute);
   app.get("/api/is-admin", telegramAuth, isAdminRoute);
   app.get("/api/admin/stats", telegramAuth, requireAdmin, adminStatsRoute);
   app.get(

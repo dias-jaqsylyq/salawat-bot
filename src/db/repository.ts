@@ -163,10 +163,23 @@ export function getLeaderboard(window?: LogWindow): LeaderboardRow[] {
 
 /** Sum all logs, optionally restricted to a UTC half-open window. */
 export function getJamaatTotal(window?: LogWindow): number {
-  const where = window ? "WHERE logged_at >= ? AND logged_at < ?" : "";
+  if (!window) {
+    const row = db
+      .prepare(
+        `SELECT
+           (SELECT COALESCE(SUM(count), 0) FROM logs) +
+           (SELECT COALESCE(SUM(retained_jamaat_total), 0) FROM users) AS total`
+      )
+      .get() as { total: number };
+    return row.total;
+  }
   const row = db
-    .prepare(`SELECT COALESCE(SUM(count), 0) AS total FROM logs ${where}`)
-    .get(...(window ? [window.startUtc, window.endUtc] : [])) as { total: number };
+    .prepare(
+      `SELECT COALESCE(SUM(count), 0) AS total
+       FROM logs
+       WHERE logged_at >= ? AND logged_at < ?`
+    )
+    .get(window.startUtc, window.endUtc) as { total: number };
   return row.total;
 }
 
@@ -216,6 +229,51 @@ export function updateUserProfile(telegramId: number, update: UserProfileUpdate)
   return getUserByTelegramId(telegramId) ?? (() => {
     throw new Error(`Failed to reload user ${telegramId} after profile update`);
   })();
+}
+
+export interface ResetUserProgressResult {
+  logsDeleted: number;
+  dayGoalOverridesDeleted: number;
+  retainedJamaatTotal: number;
+}
+
+/**
+ * Clear one user's active progress without deleting their profile.
+ * A soft reset moves the current net log sum into the all-time Jamaat carry;
+ * a hard drop clears both active logs and all prior retained contribution.
+ */
+export function resetUserProgress(
+  telegramId: number,
+  dropFromJamaat: boolean
+): ResetUserProgressResult | undefined {
+  const reset = db.transaction(() => {
+    const user = getUserByTelegramId(telegramId);
+    if (!user) return undefined;
+
+    const currentTotal = getUserTotal(user.id);
+    const retainedJamaatTotal = dropFromJamaat
+      ? 0
+      : user.retained_jamaat_total + currentTotal;
+    const dayGoalOverridesDeleted = db
+      .prepare("DELETE FROM day_goal_overrides WHERE user_id = ?")
+      .run(user.id).changes;
+    const logsDeleted = db
+      .prepare("DELETE FROM logs WHERE user_id = ?")
+      .run(user.id).changes;
+    db.prepare(
+      `UPDATE users
+       SET retained_jamaat_total = ?,
+           progress_started_at = datetime('now')
+       WHERE id = ?`
+    ).run(retainedJamaatTotal, user.id);
+
+    return {
+      logsDeleted,
+      dayGoalOverridesDeleted,
+      retainedJamaatTotal,
+    };
+  });
+  return reset();
 }
 
 /** Delete all challenge data so participants must re-register. Returns row counts removed. */
