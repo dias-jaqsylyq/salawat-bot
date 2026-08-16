@@ -31,6 +31,37 @@ export interface TelegramProfile {
   telegramLastName: string | null;
 }
 
+/** Reminder preferences collected during bot /start signup. */
+export interface CreateUserReminders {
+  reminderEnabled: boolean;
+  reminderTime: string | null;
+  fastingReminderEnabled: boolean;
+  fastingReminderTime: string;
+}
+
+/** Steps for the persistent /start registration conversation. */
+export type RegistrationStep =
+  | "real_name"
+  | "nickname"
+  | "goal"
+  | "reminder_opt_in"
+  | "reminder_time"
+  | "fasting_opt_in"
+  | "fasting_time";
+
+export interface PendingRegistration {
+  telegram_id: number;
+  step: RegistrationStep;
+  real_name: string | null;
+  nickname: string | null;
+  goal: number | null;
+  reminder_enabled: number | null;
+  reminder_time: string | null;
+  fasting_reminder_enabled: number | null;
+  fasting_reminder_time: string | null;
+  updated_at: string;
+}
+
 export interface LogEntry {
   id: number;
   user_id: number;

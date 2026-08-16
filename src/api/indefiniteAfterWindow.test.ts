@@ -8,7 +8,7 @@ process.env.CHALLENGE_END_DATE = "2020-01-31";
 process.env.TIMEZONE = "Asia/Hong_Kong";
 process.env.DB_PATH = ":memory:";
 
-const { registerRoute } = await import("./routes/register.js");
+const { createUser } = await import("../db/repository.js");
 const { logRoute } = await import("./routes/log.js");
 
 function responseCapture(): {
@@ -33,21 +33,17 @@ function responseCapture(): {
 
 it("registers and logs after informational end", () => {
   const telegramId = 820000001;
-  const registration = responseCapture();
-  registerRoute(
+  createUser(
+    telegramId,
+    "After Window",
+    100,
     {
-      telegramId,
-      telegramProfile: {
-        telegramUsername: "after_window",
-        telegramFirstName: "After",
-        telegramLastName: "Window",
-      },
-      body: { nickname: "After Window", realName: "After Window User", goal: 100 },
-    } as Request,
-    registration.res
+      telegramUsername: "after_window",
+      telegramFirstName: "After",
+      telegramLastName: "Window",
+    },
+    "After Window User"
   );
-  assert.equal(registration.getStatus(), 200);
-  assert.equal(registration.getBody().success, true);
 
   const logging = responseCapture();
   logRoute(

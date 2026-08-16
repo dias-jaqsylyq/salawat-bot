@@ -1,5 +1,13 @@
 import { db } from "./client.js";
-import type { ExportRow, LeaderboardRow, TelegramProfile, User } from "../types.js";
+import type {
+  CreateUserReminders,
+  ExportRow,
+  LeaderboardRow,
+  PendingRegistration,
+  RegistrationStep,
+  TelegramProfile,
+  User,
+} from "../types.js";
 
 export interface LogWindow {
   startUtc: string;
@@ -35,15 +43,23 @@ export function createUser(
     telegramFirstName: null,
     telegramLastName: null,
   },
-  realName: string | null = null
+  realName: string | null = null,
+  reminders?: CreateUserReminders
 ): User {
+  const reminderEnabled = reminders ? (reminders.reminderEnabled ? 1 : 0) : 1;
+  const reminderTime = reminders ? reminders.reminderTime : null;
+  const fastingReminderEnabled = reminders ? (reminders.fastingReminderEnabled ? 1 : 0) : 0;
+  const fastingReminderTime = reminders?.fastingReminderTime ?? "20:00";
+
   const result = db
     .prepare(
       `INSERT INTO users (
          telegram_id, nickname, goal,
          telegram_username, telegram_first_name, telegram_last_name,
-         real_name
-       ) VALUES (?, ?, ?, ?, ?, ?, ?)`
+         real_name,
+         reminder_enabled, reminder_time,
+         fasting_reminder_enabled, fasting_reminder_time
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       telegramId,
@@ -52,11 +68,91 @@ export function createUser(
       profile.telegramUsername,
       profile.telegramFirstName,
       profile.telegramLastName,
-      realName
+      realName,
+      reminderEnabled,
+      reminderTime,
+      fastingReminderEnabled,
+      fastingReminderTime
     );
   return getUserByTelegramId(telegramId) ?? (() => {
     throw new Error(`Failed to load user just created (rowid ${result.lastInsertRowid})`);
   })();
+}
+
+export function getPendingRegistration(telegramId: number): PendingRegistration | undefined {
+  return db
+    .prepare("SELECT * FROM pending_registrations WHERE telegram_id = ?")
+    .get(telegramId) as PendingRegistration | undefined;
+}
+
+/** Start or keep an existing pending row at step real_name. */
+export function ensurePendingRegistration(telegramId: number): PendingRegistration {
+  const existing = getPendingRegistration(telegramId);
+  if (existing) return existing;
+
+  db.prepare(
+    `INSERT INTO pending_registrations (telegram_id, step, updated_at)
+     VALUES (?, 'real_name', datetime('now'))`
+  ).run(telegramId);
+
+  return getPendingRegistration(telegramId) ?? (() => {
+    throw new Error(`Failed to create pending registration for ${telegramId}`);
+  })();
+}
+
+export function updatePendingRegistration(
+  telegramId: number,
+  patch: Partial<{
+    step: RegistrationStep;
+    real_name: string | null;
+    nickname: string | null;
+    goal: number | null;
+    reminder_enabled: number | null;
+    reminder_time: string | null;
+    fasting_reminder_enabled: number | null;
+    fasting_reminder_time: string | null;
+  }>
+): PendingRegistration {
+  const current = getPendingRegistration(telegramId);
+  if (!current) {
+    throw new Error(`updatePendingRegistration: no pending row for ${telegramId}`);
+  }
+
+  db.prepare(
+    `UPDATE pending_registrations
+     SET step = ?,
+         real_name = ?,
+         nickname = ?,
+         goal = ?,
+         reminder_enabled = ?,
+         reminder_time = ?,
+         fasting_reminder_enabled = ?,
+         fasting_reminder_time = ?,
+         updated_at = datetime('now')
+     WHERE telegram_id = ?`
+  ).run(
+    patch.step ?? current.step,
+    patch.real_name !== undefined ? patch.real_name : current.real_name,
+    patch.nickname !== undefined ? patch.nickname : current.nickname,
+    patch.goal !== undefined ? patch.goal : current.goal,
+    patch.reminder_enabled !== undefined ? patch.reminder_enabled : current.reminder_enabled,
+    patch.reminder_time !== undefined ? patch.reminder_time : current.reminder_time,
+    patch.fasting_reminder_enabled !== undefined
+      ? patch.fasting_reminder_enabled
+      : current.fasting_reminder_enabled,
+    patch.fasting_reminder_time !== undefined
+      ? patch.fasting_reminder_time
+      : current.fasting_reminder_time,
+    telegramId
+  );
+
+  return getPendingRegistration(telegramId) ?? (() => {
+    throw new Error(`Failed to reload pending registration for ${telegramId}`);
+  })();
+}
+
+export function deletePendingRegistration(telegramId: number): void {
+  db.prepare("DELETE FROM pending_registrations WHERE telegram_id = ?").run(telegramId);
 }
 
 /** Refresh Telegram profile fields if the user is already registered; no-op otherwise. */

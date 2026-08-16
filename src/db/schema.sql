@@ -33,3 +33,17 @@ CREATE TABLE IF NOT EXISTS day_goal_overrides (
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (user_id, day)
 );
+
+/** In-progress /start signup — survives Railway redeploys; deleted on finalize. */
+CREATE TABLE IF NOT EXISTS pending_registrations (
+  telegram_id INTEGER PRIMARY KEY,
+  step TEXT NOT NULL,
+  real_name TEXT,
+  nickname TEXT,
+  goal INTEGER,
+  reminder_enabled INTEGER,
+  reminder_time TEXT,
+  fasting_reminder_enabled INTEGER,
+  fasting_reminder_time TEXT,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
