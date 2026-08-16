@@ -31,6 +31,8 @@ function user(id: number): User {
     goal: 100,
     reminder_enabled: 1,
     reminder_time: null,
+    fasting_reminder_enabled: 0,
+    fasting_reminder_time: "20:00",
     telegram_username: null,
     telegram_first_name: null,
     telegram_last_name: null,

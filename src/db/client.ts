@@ -32,6 +32,8 @@ function ensureUserColumn(name: string, ddl: string) {
 
 ensureUserColumn("reminder_enabled", "INTEGER NOT NULL DEFAULT 1");
 ensureUserColumn("reminder_time", "TEXT");
+ensureUserColumn("fasting_reminder_enabled", "INTEGER NOT NULL DEFAULT 0");
+ensureUserColumn("fasting_reminder_time", "TEXT NOT NULL DEFAULT '20:00'");
 ensureUserColumn("telegram_username", "TEXT");
 ensureUserColumn("telegram_first_name", "TEXT");
 ensureUserColumn("telegram_last_name", "TEXT");

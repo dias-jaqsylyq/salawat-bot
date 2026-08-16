@@ -203,6 +203,13 @@ export function getUsersWithRemindersEnabled(): User[] {
     .all() as User[];
 }
 
+/** Users who opted into Sunday/Wednesday fasting reminders. */
+export function getUsersWithFastingRemindersEnabled(): User[] {
+  return db
+    .prepare("SELECT * FROM users WHERE fasting_reminder_enabled = 1")
+    .all() as User[];
+}
+
 export interface UserProfileUpdate {
   nickname?: string;
   goal?: number;
@@ -210,6 +217,8 @@ export interface UserProfileUpdate {
   /** HH:mm override, or null to clear back to global default. */
   reminderTime?: string | null;
   realName?: string;
+  fastingReminderEnabled?: boolean;
+  fastingReminderTime?: string;
 }
 
 export function updateUserProfile(telegramId: number, update: UserProfileUpdate): User {
@@ -225,12 +234,30 @@ export function updateUserProfile(telegramId: number, update: UserProfileUpdate)
   const reminderTime =
     update.reminderTime !== undefined ? update.reminderTime : user.reminder_time;
   const realName = update.realName !== undefined ? update.realName : user.real_name;
+  const fastingReminderEnabled =
+    update.fastingReminderEnabled !== undefined
+      ? (update.fastingReminderEnabled ? 1 : 0)
+      : user.fasting_reminder_enabled;
+  const fastingReminderTime =
+    update.fastingReminderTime !== undefined
+      ? update.fastingReminderTime
+      : user.fasting_reminder_time;
 
   db.prepare(
     `UPDATE users
-     SET nickname = ?, goal = ?, reminder_enabled = ?, reminder_time = ?, real_name = ?
+     SET nickname = ?, goal = ?, reminder_enabled = ?, reminder_time = ?, real_name = ?,
+         fasting_reminder_enabled = ?, fasting_reminder_time = ?
      WHERE telegram_id = ?`
-  ).run(nickname, goal, reminderEnabled, reminderTime, realName, telegramId);
+  ).run(
+    nickname,
+    goal,
+    reminderEnabled,
+    reminderTime,
+    realName,
+    fastingReminderEnabled,
+    fastingReminderTime,
+    telegramId
+  );
 
   return getUserByTelegramId(telegramId) ?? (() => {
     throw new Error(`Failed to reload user ${telegramId} after profile update`);

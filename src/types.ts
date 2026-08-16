@@ -7,6 +7,10 @@ export interface User {
   reminder_enabled: number;
   /** HH:mm override in challenge TIMEZONE, or null to use global REMINDER_TIME. */
   reminder_time: string | null;
+  /** SQLite 0/1; default 0 (fasting reminders off). */
+  fasting_reminder_enabled: number;
+  /** HH:mm in challenge TIMEZONE; default 20:00. */
+  fasting_reminder_time: string;
   /** From Telegram initData.user — admin export only, never public API. */
   telegram_username: string | null;
   telegram_first_name: string | null;

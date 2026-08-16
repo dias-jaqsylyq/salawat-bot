@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS users (
   goal INTEGER NOT NULL,
   reminder_enabled INTEGER NOT NULL DEFAULT 1,
   reminder_time TEXT,
+  fasting_reminder_enabled INTEGER NOT NULL DEFAULT 0,
+  fasting_reminder_time TEXT NOT NULL DEFAULT '20:00',
   telegram_username TEXT,
   telegram_first_name TEXT,
   telegram_last_name TEXT,

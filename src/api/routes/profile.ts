@@ -12,11 +12,20 @@ import { getUserByTelegramId, isNicknameTaken, updateUserProfile } from "../../d
 import { nicknameMatchesRealName, parseRealName } from "../realName.js";
 import type { User } from "../../types.js";
 
+const DEFAULT_FASTING_REMINDER_TIME = "20:00";
+
 function effectiveReminderTime(user: User): string {
   if (user.reminder_time && isValidReminderTime(user.reminder_time)) {
     return formatReminderHhMm(parseReminderTime(user.reminder_time));
   }
   return formatReminderHhMm(config.reminderTime);
+}
+
+function effectiveFastingReminderTime(user: User): string {
+  if (user.fasting_reminder_time && isValidReminderTime(user.fasting_reminder_time)) {
+    return formatReminderHhMm(parseReminderTime(user.fasting_reminder_time));
+  }
+  return DEFAULT_FASTING_REMINDER_TIME;
 }
 
 function profileResponse(user: User) {
@@ -25,6 +34,8 @@ function profileResponse(user: User) {
     dailyGoal: user.goal,
     reminderEnabled: user.reminder_enabled === 1,
     reminderTime: effectiveReminderTime(user),
+    fastingReminderEnabled: user.fasting_reminder_enabled === 1,
+    fastingReminderTime: effectiveFastingReminderTime(user),
   };
 }
 
@@ -44,8 +55,18 @@ export function patchProfileRoute(req: Request, res: Response) {
   const hasReminderEnabled = Object.prototype.hasOwnProperty.call(body, "reminderEnabled");
   const hasReminderTime = Object.prototype.hasOwnProperty.call(body, "reminderTime");
   const hasRealName = Object.prototype.hasOwnProperty.call(body, "realName");
+  const hasFastingReminderEnabled = Object.prototype.hasOwnProperty.call(body, "fastingReminderEnabled");
+  const hasFastingReminderTime = Object.prototype.hasOwnProperty.call(body, "fastingReminderTime");
 
-  if (!hasNickname && !hasDailyGoal && !hasReminderEnabled && !hasReminderTime && !hasRealName) {
+  if (
+    !hasNickname &&
+    !hasDailyGoal &&
+    !hasReminderEnabled &&
+    !hasReminderTime &&
+    !hasRealName &&
+    !hasFastingReminderEnabled &&
+    !hasFastingReminderTime
+  ) {
     res.status(400).json({ success: false, error: "invalid_body" });
     return;
   }
@@ -115,6 +136,25 @@ export function patchProfileRoute(req: Request, res: Response) {
     realName = parsedRealName;
   }
 
+  let fastingReminderEnabled: boolean | undefined;
+  if (hasFastingReminderEnabled) {
+    if (typeof body.fastingReminderEnabled !== "boolean") {
+      res.status(400).json({ success: false, error: "invalid_fasting_reminder_enabled" });
+      return;
+    }
+    fastingReminderEnabled = body.fastingReminderEnabled;
+  }
+
+  let fastingReminderTime: string | undefined;
+  if (hasFastingReminderTime) {
+    if (typeof body.fastingReminderTime === "string" && isValidReminderTime(body.fastingReminderTime)) {
+      fastingReminderTime = formatReminderHhMm(parseReminderTime(body.fastingReminderTime));
+    } else {
+      res.status(400).json({ success: false, error: "invalid_fasting_reminder_time" });
+      return;
+    }
+  }
+
   const effectiveNickname = nickname ?? user.nickname;
   const effectiveRealName = realName ?? user.real_name;
   if (effectiveRealName && nicknameMatchesRealName(effectiveNickname, effectiveRealName)) {
@@ -128,6 +168,8 @@ export function patchProfileRoute(req: Request, res: Response) {
     reminderEnabled,
     reminderTime,
     realName,
+    fastingReminderEnabled,
+    fastingReminderTime,
   });
 
   res.json(profileResponse(updated));

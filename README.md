@@ -111,19 +111,23 @@ Unauthenticated:
 - Competition ranks (ties share a rank: 1, 1, 3)
 
 **GET /api/profile**
-→ `200 { nickname, dailyGoal, reminderEnabled, reminderTime }`
+→ `200 { nickname, dailyGoal, reminderEnabled, reminderTime, fastingReminderEnabled, fastingReminderTime }`
 - `reminderTime`: effective `HH:mm` in challenge `TIMEZONE` (`users.reminder_time` if set, else global `REMINDER_TIME`)
+- `fastingReminderEnabled`: default `false` (opt-in)
+- `fastingReminderTime`: stored `HH:mm`, default `20:00`
 → `403 { success: false, error: "not_registered" }`
 
-**PATCH /api/profile** — body (all fields optional; at least one required): `{ nickname?, dailyGoal?, reminderEnabled?, reminderTime?, realName? }`
+**PATCH /api/profile** — body (all fields optional; at least one required): `{ nickname?, dailyGoal?, reminderEnabled?, reminderTime?, realName?, fastingReminderEnabled?, fastingReminderTime? }`
 - Same nickname / daily-goal / real-name rules as register
 - `realName` is write-only (used by the one-time completion prompt); GET/PATCH responses never include it
 - Nickname and real name must differ case-insensitively (new or existing values)
 - `reminderEnabled`: boolean
 - `reminderTime`: `HH:mm` (24h), or `null` to clear override and use global `REMINDER_TIME`
+- `fastingReminderEnabled`: boolean
+- `fastingReminderTime`: required `HH:mm` when present (`null` rejected)
 - Rate limit: 5 requests/minute/user
 → `200` same shape as GET
-→ `400 { success: false, error: "invalid_body" | "invalid_nickname" | "invalid_goal" | "invalid_real_name" | "nickname_matches_real_name" | "invalid_reminder_enabled" | "invalid_reminder_time" }`
+→ `400 { success: false, error: "invalid_body" | "invalid_nickname" | "invalid_goal" | "invalid_real_name" | "nickname_matches_real_name" | "invalid_reminder_enabled" | "invalid_reminder_time" | "invalid_fasting_reminder_enabled" | "invalid_fasting_reminder_time" }`
 → `403 { success: false, error: "not_registered" }`
 → `409 { success: false, error: "nickname_taken" }`
 → `429 { success: false, error: "rate_limited" }`
@@ -139,6 +143,8 @@ Unauthenticated:
 → `403 not_registered`
 
 **Reminders:** a minute cron in `TIMEZONE` messages each user whose `reminder_enabled` is on and whose effective reminder time matches the current `HH:mm`. Global `REMINDER_TIME` is the default when `reminder_time` is null. Sends **independent of** `CHALLENGE_START_DATE` / `CHALLENGE_END_DATE` (before start and after end included). Turn reminders off in Settings to stop DMs. Overlapping ticks are skipped while a send is in flight. No catch-up if the process was down during a user’s minute.
+
+**Fasting reminders:** a separate minute cron (not shared with daily salawat reminders) DMs users with `fasting_reminder_enabled` on, only when the `TIMEZONE` weekday is Sunday or Wednesday and the user's `fasting_reminder_time` matches the current `HH:mm` (default `20:00`). Sunday copy frames Monday's fast; Wednesday copy frames Thursday's. The hadith rotates deterministically across three texts so consecutive fire days do not repeat. Opt-in (default off). Same no-catch-up / overlapping-tick rules.
 
 **GET /api/is-admin**
 → `200 { isAdmin: boolean }` based on authenticated Telegram id.
