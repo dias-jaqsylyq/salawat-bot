@@ -1,10 +1,10 @@
 # Salawat Challenge Bot
 
-Backend for a month-long salawat counting challenge among a friend group during Mawlid month. All user interaction (registration, logging salawat, progress, leaderboard) happens in a separate [Telegram Mini App](https://core.telegram.org/bots/webapps) frontend ([`salawat-miniapp`](https://github.com/dias-jaqsylyq/salawat-miniapp), deployed on Vercel), which talks to this repo's HTTP API. The bot process itself only sends the daily reminder and replies to `/start`/`/help` with a nudge to open the app.
+Backend for a month-long salawat counting challenge among a friend group during Mawlid month. **Registration happens in the Telegram bot** via `/start` (resumable chat flow). Logging, progress, leaderboard, settings, and admin live in the [Telegram Mini App](https://core.telegram.org/bots/webapps) frontend ([`salawat-miniapp`](https://github.com/dias-jaqsylyq/salawat-miniapp)), which talks to this repo's HTTP API.
 
 ## Architecture
 One Node process runs two things side by side:
-- A grammY bot using long polling (`/start`, `/help`, daily reminder scheduler, sets the chat menu button to open the Mini App).
+- A grammY bot using long polling (`/start` registration conversation, `/help`, daily + fasting reminder schedulers, sets the chat menu button to open the Mini App).
 - An Express HTTP API (`/api/*`) that the Mini App frontend calls directly, authenticated via Telegram `initData` — no separate login system.
 
 Both share the same SQLite database (`db/repository.ts`) and challenge-date logic (`utils/challenge.ts`).
@@ -69,14 +69,8 @@ Requests with a missing or invalid header get `401 { success: false, error: "mis
 Unauthenticated:
 - **GET /health** → `200 { ok: true }` (for Railway / uptime checks)
 
-**POST /api/register** — body `{ realName: string, nickname: string, goal: number }`
-- `realName`: trimmed length 1–100; stored as `users.real_name`; admin-only (never returned from public APIs)
-- `nickname`: trimmed length 1–50, case-insensitive unique across users; must differ from `realName` case-insensitively
-- `goal`: **daily** salawat target — integer, `1`…`100000000` inclusive (stored as `users.goal`)
-→ `200 { success: true, user: { id, nickname, goal } }` (idempotent — calling it again for an already-registered user just returns their existing record unchanged; does not write `real_name`)
-→ `400 { success: false, error: "invalid_nickname" | "invalid_goal" | "invalid_real_name" | "nickname_matches_real_name" }`
-→ `409 { success: false, error: "nickname_taken" }`
-→ `429 { success: false, error: "rate_limited" }`
+**POST /api/register** — disabled (signup is the bot `/start` conversation)
+→ `403 { success: false, error: "register_via_bot" }`
 
 **POST /api/log** — body `{ count: number }`
 - `count`: integer, `1`…`10000` inclusive
@@ -199,7 +193,8 @@ npm run backup   # writes data/backups/salawat-<UTC timestamp>.db via sqlite3 .b
 Same idea — `npm install && npm run build`, run under `pm2`, keep `.env` on the server. Expose `PORT` over HTTPS (e.g. via nginx + Let's Encrypt) so the Mini App can reach `/api/*`. Point `DB_PATH` at a durable disk path and run `npm run backup` on a cron.
 
 ## Bot commands
-- `/start`, `/help` — both reply with a short message pointing at the chat menu button, which opens the Mini App.
+- `/start` — if already registered: menu-button nudge. If not: starts or **resumes** the signup conversation (full name → nickname → daily goal → salawat reminder opt-in/time → fasting reminder opt-in/time). Partial answers live in `pending_registrations` so Railway redeploys don't lose progress.
+- `/help` — registered users get the menu nudge; unregistered users with a pending signup are re-prompted at their current step; others are told to send `/start`.
 
 ## Notes / v1 scope
-Group-chat announcements, multi-timezone support, and manual count correction remain out of scope. Daily goals, streaks, and per-user reminder preferences are included via `/api/progress` and `/api/profile`. A secret-gated CSV export (`/api/admin/export`) is available for prize time. Registration, logging, progress, leaderboard, and settings live in the Mini App — see the [`salawat-miniapp`](https://github.com/dias-jaqsylyq/salawat-miniapp) README for that side.
+Group-chat announcements, multi-timezone support, and manual count correction remain out of scope. Daily goals, streaks, and per-user reminder preferences are included via `/api/progress` and `/api/profile`. A secret-gated CSV export (`/api/admin/export`) is available for prize time. Signup is in the bot; logging, progress, leaderboard, and settings live in the Mini App — see the [`salawat-miniapp`](https://github.com/dias-jaqsylyq/salawat-miniapp) README for that side.

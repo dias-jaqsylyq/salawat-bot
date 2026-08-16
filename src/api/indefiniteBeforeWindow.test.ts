@@ -11,7 +11,7 @@ process.env.TIMEZONE = "Asia/Hong_Kong";
 process.env.REMINDER_TIME = "20:00";
 process.env.DB_PATH = ":memory:";
 
-const { registerRoute } = await import("./routes/register.js");
+const { createUser } = await import("../db/repository.js");
 const { logRoute } = await import("./routes/log.js");
 const { progressRoute } = await import("./routes/progress.js");
 const { sendDueReminders } = await import("../scheduler/reminder.js");
@@ -38,21 +38,17 @@ function responseCapture(): {
 
 it("registers, logs, and counts streak before informational start", async () => {
   const telegramId = 810000001;
-  const registration = responseCapture();
-  registerRoute(
+  createUser(
+    telegramId,
+    "Before Window",
+    100,
     {
-      telegramId,
-      telegramProfile: {
-        telegramUsername: "before_window",
-        telegramFirstName: "Before",
-        telegramLastName: "Window",
-      },
-      body: { nickname: "Before Window", realName: "Before Window User", goal: 100 },
-    } as Request,
-    registration.res
+      telegramUsername: "before_window",
+      telegramFirstName: "Before",
+      telegramLastName: "Window",
+    },
+    "Before Window User"
   );
-  assert.equal(registration.getStatus(), 200);
-  assert.equal(registration.getBody().success, true);
 
   const logging = responseCapture();
   logRoute(

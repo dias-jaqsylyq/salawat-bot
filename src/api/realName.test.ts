@@ -87,44 +87,11 @@ function assertNoRealNameKeys(value: unknown): void {
 }
 
 it("requires a valid real name that differs from nickname", () => {
-  const missing = callRegister(850000001, { nickname: "Ali", goal: 100 });
-  assert.equal(missing.status, 400);
-  assert.deepEqual(missing.body, { success: false, error: "invalid_real_name" });
+  const blocked = callRegister(850000001, { nickname: "Ali", goal: 100, realName: "Ali Nurlanov" });
+  assert.equal(blocked.status, 403);
+  assert.deepEqual(blocked.body, { success: false, error: "register_via_bot" });
 
-  const tooLong = callRegister(850000002, {
-    nickname: "Ali",
-    goal: 100,
-    realName: "A".repeat(101),
-  });
-  assert.equal(tooLong.status, 400);
-  assert.deepEqual(tooLong.body, { success: false, error: "invalid_real_name" });
-
-  const match = callRegister(850000003, {
-    nickname: "Ali Nurlanov",
-    goal: 100,
-    realName: "ali nurlanov",
-  });
-  assert.equal(match.status, 400);
-  assert.deepEqual(match.body, { success: false, error: "nickname_matches_real_name" });
-
-  const trailing = callRegister(850000004, {
-    nickname: "Ali",
-    goal: 100,
-    realName: "ali ",
-  });
-  assert.equal(trailing.status, 400);
-  assert.deepEqual(trailing.body, { success: false, error: "nickname_matches_real_name" });
-
-  const ok = callRegister(850000005, {
-    nickname: "Ali",
-    goal: 100,
-    realName: "Ali Nurlanov",
-  });
-  assert.equal(ok.status, 200);
-  assert.equal(ok.body.success, true);
-  assert.deepEqual(ok.body.user, { id: ok.body.user.id, nickname: "Ali", goal: 100 });
-  assertNoRealNameKeys(ok.body);
-
+  createUser(850000005, "Ali", 100, telegramProfile(850000005), "Ali Nurlanov");
   const stored = getUserByTelegramId(850000005);
   assert.equal(stored?.real_name, "Ali Nurlanov");
 
@@ -172,12 +139,7 @@ it("flags legacy users and lets PATCH set a real name without leaking it", () =>
 });
 
 it("keeps real names off public leaderboard and on admin results/CSV", () => {
-  const named = callRegister(850000020, {
-    nickname: "PublicNick",
-    goal: 50,
-    realName: "Private Person",
-  });
-  assert.equal(named.status, 200);
+  createUser(850000020, "PublicNick", 50, telegramProfile(850000020), "Private Person");
 
   const publicBoard = callLeaderboard(850000020);
   assert.equal(publicBoard.status, 200);
