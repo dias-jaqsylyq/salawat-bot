@@ -47,3 +47,18 @@ CREATE TABLE IF NOT EXISTS pending_registrations (
   fasting_reminder_time TEXT,
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+/** Telegram ids with full Mini App + bot admin powers. Seeded from ADMIN_TELEGRAM_ID. */
+CREATE TABLE IF NOT EXISTS admins (
+  telegram_id INTEGER PRIMARY KEY,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+/** One pending YES-confirm admin bot action per admin. */
+CREATE TABLE IF NOT EXISTS pending_admin_actions (
+  admin_telegram_id INTEGER PRIMARY KEY,
+  action TEXT NOT NULL,
+  target_telegram_id INTEGER NOT NULL,
+  target_label TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

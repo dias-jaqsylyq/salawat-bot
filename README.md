@@ -34,7 +34,7 @@ Open `.env` and set:
 - `MINI_APP_DEEP_LINK` — `t.me/salawat_challenge_bot/challenge` deep link used in the daily reminder's button. Works today independent of the Vercel deployment.
 - `INIT_DATA_MAX_AGE_SECONDS` — how old a Telegram `initData` payload can be before it's rejected as stale (prefer `3600` in production; code default is 24h if unset).
 - `ADMIN_EXPORT_SECRET` — optional. When set, enables `GET /api/admin/export?key=…` for prize-time CSV download.
-- `ADMIN_TELEGRAM_ID` — numeric Telegram user id allowed to use Mini App admin broadcasts. Invalid or empty disables Mini App admin access.
+- `ADMIN_TELEGRAM_ID` — seed/bootstrap Telegram user id inserted into the SQLite `admins` table on boot. Runtime Mini App + bot admin checks use that table (add more with `/makeadmin`). Invalid or empty skips seeding (existing `admins` rows still work).
 
 **Never commit `.env` or paste your bot token anywhere public.** If a token leaks, revoke it via `@BotFather` → `/revoke`.
 
@@ -141,9 +141,9 @@ Unauthenticated:
 **Fasting reminders:** a separate minute cron (not shared with daily salawat reminders) DMs users with `fasting_reminder_enabled` on, only when the `TIMEZONE` weekday is Sunday or Wednesday and the user's `fasting_reminder_time` matches the current `HH:mm` (default `20:00`). Sunday copy frames Monday's fast; Wednesday copy frames Thursday's. The hadith rotates deterministically across three texts so consecutive fire days do not repeat. Opt-in (default off). Same no-catch-up / overlapping-tick rules.
 
 **GET /api/is-admin**
-→ `200 { isAdmin: boolean }` based on authenticated Telegram id.
+→ `200 { isAdmin: boolean }` based on whether the authenticated Telegram id is in the `admins` table (seeded from `ADMIN_TELEGRAM_ID`, plus anyone granted via `/makeadmin`).
 
-The following Mini App admin routes require authenticated Telegram id to match `ADMIN_TELEGRAM_ID`:
+The following Mini App admin routes require an authenticated Telegram id present in `admins`:
 
 - **GET /api/admin/stats** → `{ participantCount, mawlidStartDate, mawlidEndDate }`
 - **GET /api/admin/leaderboard?period=all|mawlid** → live ranked totals `{ rank, nickname, realName, total }` for all logs or only the configured Mawlid period
@@ -195,6 +195,8 @@ Same idea — `npm install && npm run build`, run under `pm2`, keep `.env` on th
 ## Bot commands
 - `/start` — if already registered: menu-button nudge. If not: starts or **resumes** the signup conversation (full name → nickname → daily goal → salawat reminder opt-in/time → fasting reminder opt-in/time). Partial answers live in `pending_registrations` so Railway redeploys don't lose progress.
 - `/help` — registered users get the menu nudge; unregistered users with a pending signup are re-prompted at their current step; others are told to send `/start`.
+- `/deleteuser <nickname|telegram_id>` — **admins only.** Asks for a `YES` reply, then permanently deletes that user's row, logs, day-goal overrides, pending signup, and admin row (as if they never existed). Self-delete is refused. Afterward `/start` runs full registration again.
+- `/makeadmin <telegram_id|@username>` — **admins only.** Asks for a `YES` reply, then inserts that Telegram id into `admins` with the same powers as every other admin (Mini App Admin tab, broadcast/export, `/deleteuser`, `/makeadmin`). Target need not be registered yet; `@username` resolves from stored `telegram_username` or Telegram `getChat`.
 
 ## Notes / v1 scope
 Group-chat announcements, multi-timezone support, and manual count correction remain out of scope. Daily goals, streaks, and per-user reminder preferences are included via `/api/progress` and `/api/profile`. A secret-gated CSV export (`/api/admin/export`) is available for prize time. Signup is in the bot; logging, progress, leaderboard, and settings live in the Mini App — see the [`salawat-miniapp`](https://github.com/dias-jaqsylyq/salawat-miniapp) README for that side.

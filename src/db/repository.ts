@@ -1,8 +1,10 @@
 import { db } from "./client.js";
 import type {
+  AdminActionType,
   CreateUserReminders,
   ExportRow,
   LeaderboardRow,
+  PendingAdminAction,
   PendingRegistration,
   RegistrationStep,
   TelegramProfile,
@@ -20,6 +22,24 @@ export function getUserByTelegramId(telegramId: number): User | undefined {
     .get(telegramId) as User | undefined;
 }
 
+/** Case-insensitive nickname lookup. */
+export function getUserByNickname(nickname: string): User | undefined {
+  return db
+    .prepare("SELECT * FROM users WHERE LOWER(nickname) = LOWER(?) LIMIT 1")
+    .get(nickname) as User | undefined;
+}
+
+/** Case-insensitive Telegram username lookup (`@` optional). */
+export function getUserByTelegramUsername(username: string): User | undefined {
+  const normalized = username.trim().replace(/^@/, "");
+  if (!normalized) return undefined;
+  return db
+    .prepare(
+      "SELECT * FROM users WHERE telegram_username IS NOT NULL AND LOWER(telegram_username) = LOWER(?) LIMIT 1"
+    )
+    .get(normalized) as User | undefined;
+}
+
 /** Case-insensitive nickname collision check (excludes an optional telegram_id). */
 export function isNicknameTaken(nickname: string, excludeTelegramId?: number): boolean {
   const row = (
@@ -32,6 +52,98 @@ export function isNicknameTaken(nickname: string, excludeTelegramId?: number): b
           .get(nickname, excludeTelegramId)
   ) as { hit: number } | undefined;
   return row !== undefined;
+}
+
+export function isAdmin(telegramId: number): boolean {
+  const row = db
+    .prepare("SELECT 1 AS hit FROM admins WHERE telegram_id = ? LIMIT 1")
+    .get(telegramId) as { hit: number } | undefined;
+  return row !== undefined;
+}
+
+export function addAdmin(telegramId: number): void {
+  db.prepare("INSERT OR IGNORE INTO admins (telegram_id) VALUES (?)").run(telegramId);
+}
+
+export function removeAdmin(telegramId: number): void {
+  db.prepare("DELETE FROM admins WHERE telegram_id = ?").run(telegramId);
+}
+
+export function getPendingAdminAction(adminTelegramId: number): PendingAdminAction | undefined {
+  return db
+    .prepare("SELECT * FROM pending_admin_actions WHERE admin_telegram_id = ?")
+    .get(adminTelegramId) as PendingAdminAction | undefined;
+}
+
+export function setPendingAdminAction(
+  adminTelegramId: number,
+  action: AdminActionType,
+  targetTelegramId: number,
+  targetLabel: string
+): PendingAdminAction {
+  db.prepare(
+    `INSERT INTO pending_admin_actions (admin_telegram_id, action, target_telegram_id, target_label, created_at)
+     VALUES (?, ?, ?, ?, datetime('now'))
+     ON CONFLICT(admin_telegram_id) DO UPDATE SET
+       action = excluded.action,
+       target_telegram_id = excluded.target_telegram_id,
+       target_label = excluded.target_label,
+       created_at = excluded.created_at`
+  ).run(adminTelegramId, action, targetTelegramId, targetLabel);
+
+  return getPendingAdminAction(adminTelegramId) ?? (() => {
+    throw new Error(`Failed to load pending admin action for ${adminTelegramId}`);
+  })();
+}
+
+export function clearPendingAdminAction(adminTelegramId: number): void {
+  db.prepare("DELETE FROM pending_admin_actions WHERE admin_telegram_id = ?").run(
+    adminTelegramId
+  );
+}
+
+export interface DeleteUserCompletelyResult {
+  userDeleted: boolean;
+  logsDeleted: number;
+  dayGoalOverridesDeleted: number;
+  pendingDeleted: boolean;
+  adminDeleted: boolean;
+}
+
+/**
+ * Full wipe for one Telegram id: overrides, logs, users row, pending signup, admin row.
+ * After this, /start treats them as brand new.
+ */
+export function deleteUserCompletely(telegramId: number): DeleteUserCompletelyResult {
+  const wipe = db.transaction(() => {
+    const user = getUserByTelegramId(telegramId);
+    let logsDeleted = 0;
+    let dayGoalOverridesDeleted = 0;
+    let userDeleted = false;
+
+    if (user) {
+      dayGoalOverridesDeleted = db
+        .prepare("DELETE FROM day_goal_overrides WHERE user_id = ?")
+        .run(user.id).changes;
+      logsDeleted = db.prepare("DELETE FROM logs WHERE user_id = ?").run(user.id).changes;
+      userDeleted = db.prepare("DELETE FROM users WHERE id = ?").run(user.id).changes > 0;
+    }
+
+    const pendingDeleted =
+      db.prepare("DELETE FROM pending_registrations WHERE telegram_id = ?").run(telegramId)
+        .changes > 0;
+    const adminDeleted =
+      db.prepare("DELETE FROM admins WHERE telegram_id = ?").run(telegramId).changes > 0;
+
+    return {
+      userDeleted,
+      logsDeleted,
+      dayGoalOverridesDeleted,
+      pendingDeleted,
+      adminDeleted,
+    };
+  });
+  return wipe();
 }
 
 export function createUser(

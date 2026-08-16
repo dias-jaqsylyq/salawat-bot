@@ -1,6 +1,11 @@
 import { Bot } from "grammy";
 import { config } from "./config.js";
 import type { MyContext } from "./context.js";
+import {
+  adminConfirmTextHandler,
+  deleteUserCommand,
+  makeAdminCommand,
+} from "./commands/admin.js";
 import { helpCommand, registrationTextHandler, startCommand } from "./commands/start.js";
 
 export function createBot(): Bot<MyContext> {
@@ -8,6 +13,13 @@ export function createBot(): Bot<MyContext> {
 
   bot.command("start", startCommand);
   bot.command("help", helpCommand);
+  bot.command("deleteuser", deleteUserCommand);
+  bot.command("makeadmin", makeAdminCommand);
+
+  bot.on("message:text", async (ctx, next) => {
+    const handled = await adminConfirmTextHandler(ctx);
+    if (!handled) await next();
+  });
   bot.on("message:text", registrationTextHandler);
 
   bot.catch((err) => {
