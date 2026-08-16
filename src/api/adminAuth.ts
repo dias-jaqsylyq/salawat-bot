@@ -1,8 +1,9 @@
 import type { NextFunction, Request, Response } from "express";
-import { config } from "../config.js";
+import { isAdmin } from "../db/repository.js";
 
+/** True when telegramId is in the admins table (seeded from ADMIN_TELEGRAM_ID). */
 export function isAdminTelegramId(telegramId: number): boolean {
-  return config.adminTelegramId !== null && telegramId === config.adminTelegramId;
+  return isAdmin(telegramId);
 }
 
 /** Must run after telegramAuth has populated req.telegramId. */

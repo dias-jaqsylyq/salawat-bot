@@ -40,3 +40,10 @@ ensureUserColumn("telegram_last_name", "TEXT");
 ensureUserColumn("real_name", "TEXT");
 ensureUserColumn("retained_jamaat_total", "INTEGER NOT NULL DEFAULT 0");
 ensureUserColumn("progress_started_at", "TEXT");
+
+/** Bootstrap/recovery admin from env — never the sole live auth source after seed. */
+if (config.adminTelegramId !== null) {
+  db.prepare("INSERT OR IGNORE INTO admins (telegram_id) VALUES (?)").run(
+    config.adminTelegramId
+  );
+}

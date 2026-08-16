@@ -62,6 +62,16 @@ export interface PendingRegistration {
   updated_at: string;
 }
 
+export type AdminActionType = "delete_user" | "make_admin";
+
+export interface PendingAdminAction {
+  admin_telegram_id: number;
+  action: AdminActionType;
+  target_telegram_id: number;
+  target_label: string;
+  created_at: string;
+}
+
 export interface LogEntry {
   id: number;
   user_id: number;

@@ -53,9 +53,9 @@ describe("admin Telegram authorization", () => {
     assert.equal(parseAdminTelegramId("abc"), null);
   });
 
-  it("matches only the configured Telegram id", () => {
+  it("matches seeded env admin from the admins table", () => {
     assert.equal(isAdminTelegramId(1225110756), true);
-    assert.equal(isAdminTelegramId(7171181415), false);
+    assert.equal(isAdminTelegramId(999000001), false);
   });
 
   it("returns 403 for a non-admin", () => {
