@@ -21,6 +21,8 @@ const { broadcastUsers } = await import("./broadcastService.js");
 const {
   createPdfSender,
   hasPdfSignature,
+  safeFilename,
+  telegramUploadFilename,
 } = await import("./routes/broadcastFile.js");
 
 function user(id: number): User {
@@ -147,12 +149,21 @@ describe("PDF broadcast", () => {
     const send = createPdfSender(
       bot,
       Buffer.from("%PDF-1.7\ncontent"),
-      "book.pdf"
+      "Monday Fast.pdf"
     );
     await send(user(1));
     await send(user(2));
 
     assert.equal(documents[0] instanceof InputFile, true);
+    assert.equal((documents[0] as InputFile).filename, '"Monday Fast.pdf"');
     assert.equal(documents[1], "telegram-file-id");
+  });
+
+  it("keeps spaces and non-ASCII letters in the upload name", () => {
+    assert.equal(safeFilename("Monday Fast.pdf"), "Monday Fast.pdf");
+    assert.equal(safeFilename("Салауат.pdf"), "Салауат.pdf");
+    assert.equal(safeFilename("Imam's notes.pdf"), "Imam's notes.pdf");
+    assert.equal(safeFilename("C:\\\\Users\\\\Dias\\\\Monday Fast.pdf"), "Monday Fast.pdf");
+    assert.equal(telegramUploadFilename("Monday Fast.pdf"), '"Monday Fast.pdf"');
   });
 });

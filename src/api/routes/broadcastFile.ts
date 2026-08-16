@@ -1,4 +1,3 @@
-import { basename } from "node:path";
 import type { NextFunction, Request, Response } from "express";
 import { InputFile, type Bot } from "grammy";
 import multer from "multer";
@@ -16,7 +15,7 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_PDF_BYTES, files: 1 },
   fileFilter: (_req, file, callback) => {
-    const pdfName = file.originalname.toLowerCase().endsWith(".pdf");
+    const pdfName = decodeMulterFilename(file.originalname).toLowerCase().endsWith(".pdf");
     const pdfMime = file.mimetype === "application/pdf";
     callback(null, pdfName && pdfMime);
   },
@@ -44,9 +43,34 @@ export function adminPdfUpload(
   });
 }
 
-function safeFilename(original: string): string {
-  const cleaned = basename(original).replace(/[^\w.\- ()]/g, "_");
-  return cleaned || "document.pdf";
+/**
+ * Multer/busboy historically exposes UTF-8 names as latin1. If the string is
+ * already real Unicode, leave it alone.
+ */
+export function decodeMulterFilename(original: string): string {
+  if ([...original].some((ch) => ch.charCodeAt(0) > 255)) return original;
+  const decoded = Buffer.from(original, "latin1").toString("utf8");
+  return decoded.includes("\uFFFD") ? original : decoded;
+}
+
+/** Keep letters (including non-ASCII), digits, and a small safe punctuation set. */
+export function safeFilename(original: string): string {
+  const base = decodeMulterFilename(original).replace(/^.*[/\\]/, "");
+  const cleaned = base
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .replace(/[^\p{L}\p{N}._ ()'+-]/gu, "_")
+    .replace(/_+/g, "_")
+    .trim();
+  if (!cleaned || cleaned === ".pdf") return "document.pdf";
+  return cleaned.toLowerCase().endsWith(".pdf") ? cleaned : `${cleaned}.pdf`;
+}
+
+/**
+ * grammy writes `filename=${name}` without quotes. Wrap so Telegram does not
+ * truncate at the first space ("Monday Fast.pdf" → "Monday").
+ */
+export function telegramUploadFilename(filename: string): string {
+  return `"${filename.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
 export function createPdfSender(
@@ -57,7 +81,7 @@ export function createPdfSender(
 ): (user: User) => Promise<void> {
   let telegramFileId: string | undefined;
   return async (user: User): Promise<void> => {
-    const document = telegramFileId ?? new InputFile(buffer, filename);
+    const document = telegramFileId ?? new InputFile(buffer, telegramUploadFilename(filename));
     const sent = await bot.api.sendDocument(user.telegram_id, document, {
       caption,
     });
