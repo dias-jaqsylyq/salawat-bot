@@ -47,7 +47,7 @@ it("registers, logs, and counts streak before informational start", async () => 
         telegramFirstName: "Before",
         telegramLastName: "Window",
       },
-      body: { nickname: "Before Window", goal: 100 },
+      body: { nickname: "Before Window", realName: "Before Window User", goal: 100 },
     } as Request,
     registration.res
   );

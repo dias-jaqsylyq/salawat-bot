@@ -2,9 +2,10 @@ import type { Request, Response } from "express";
 import { MAX_GOAL, REGISTER_RATE_LIMIT_PER_MINUTE } from "../../config.js";
 import { allowRequest } from "../rateLimit.js";
 import { createUser, getUserByTelegramId, isNicknameTaken } from "../../db/repository.js";
+import { nicknameMatchesRealName, parseRealName } from "../realName.js";
 
 export function registerRoute(req: Request, res: Response) {
-  const { nickname, goal } = req.body ?? {};
+  const { nickname, goal, realName } = req.body ?? {};
 
   if (typeof nickname !== "string" || nickname.trim().length === 0 || nickname.trim().length > 50) {
     res.status(400).json({ success: false, error: "invalid_nickname" });
@@ -12,6 +13,18 @@ export function registerRoute(req: Request, res: Response) {
   }
   if (typeof goal !== "number" || !Number.isInteger(goal) || goal <= 0 || goal > MAX_GOAL) {
     res.status(400).json({ success: false, error: "invalid_goal" });
+    return;
+  }
+
+  const parsedRealName = parseRealName(realName);
+  if (!parsedRealName) {
+    res.status(400).json({ success: false, error: "invalid_real_name" });
+    return;
+  }
+
+  const trimmed = nickname.trim();
+  if (nicknameMatchesRealName(trimmed, parsedRealName)) {
+    res.status(400).json({ success: false, error: "nickname_matches_real_name" });
     return;
   }
 
@@ -29,14 +42,13 @@ export function registerRoute(req: Request, res: Response) {
     return;
   }
 
-  const trimmed = nickname.trim();
   if (isNicknameTaken(trimmed)) {
     res.status(409).json({ success: false, error: "nickname_taken" });
     return;
   }
 
   try {
-    const user = createUser(req.telegramId, trimmed, goal, req.telegramProfile);
+    const user = createUser(req.telegramId, trimmed, goal, req.telegramProfile, parsedRealName);
     res.json({ success: true, user: { id: user.id, nickname: user.nickname, goal: user.goal } });
   } catch (err) {
     // Parallel first-time register: UNIQUE(telegram_id) — treat as idempotent success.

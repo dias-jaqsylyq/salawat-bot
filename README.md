@@ -69,11 +69,12 @@ Requests with a missing or invalid header get `401 { success: false, error: "mis
 Unauthenticated:
 - **GET /health** → `200 { ok: true }` (for Railway / uptime checks)
 
-**POST /api/register** — body `{ nickname: string, goal: number }`
-- `nickname`: trimmed length 1–50, case-insensitive unique across users
+**POST /api/register** — body `{ realName: string, nickname: string, goal: number }`
+- `realName`: trimmed length 1–100; stored as `users.real_name`; admin-only (never returned from public APIs)
+- `nickname`: trimmed length 1–50, case-insensitive unique across users; must differ from `realName` case-insensitively
 - `goal`: **daily** salawat target — integer, `1`…`100000000` inclusive (stored as `users.goal`)
-→ `200 { success: true, user: { id, nickname, goal } }` (idempotent — calling it again for an already-registered user just returns their existing record unchanged)
-→ `400 { success: false, error: "invalid_nickname" | "invalid_goal" }`
+→ `200 { success: true, user: { id, nickname, goal } }` (idempotent — calling it again for an already-registered user just returns their existing record unchanged; does not write `real_name`)
+→ `400 { success: false, error: "invalid_nickname" | "invalid_goal" | "invalid_real_name" | "nickname_matches_real_name" }`
 → `409 { success: false, error: "nickname_taken" }`
 → `429 { success: false, error: "rate_limited" }`
 
@@ -87,12 +88,13 @@ Unauthenticated:
 
 **GET /api/progress**
 → `200 { registered: false, challengeStatus, challengeStartDate, challengeEndDate }` if not yet registered
-→ `200 { registered: true, nickname, total, todayTotal, dailyGoal, streak, last7Days, daysLeft, challengeStatus, challengeStartDate, challengeEndDate }`
+→ `200 { registered: true, nickname, total, todayTotal, dailyGoal, streak, last7Days, daysLeft, needsRealName, challengeStatus, challengeStartDate, challengeEndDate }`
 - `total`: all-time sum
 - `todayTotal` / `newTodayTotal`: salawat logged so far on the current calendar day in `TIMEZONE` (not UTC midnight)
 - `dailyGoal`: daily target (`users.goal`)
 - `streak`: consecutive TIMEZONE days (walking backward from today) where that day is effectively met. Today uses live logs only (overrides ignored). Past days use a per-day override when set, otherwise `total ≥ dailyGoal`. Streak does not extend before the user's registration day.
 - `last7Days`: array of 7 `{ date, total, metGoal, locked }` entries, oldest → newest, ending with today (`date` is `YYYY-MM-DD` in `TIMEZONE`). `total` is always from logs; `metGoal` for past days follows override when present. Days before the user's registration day have `locked: true` (not missed / not makeup-eligible).
+- `needsRealName`: `true` when `users.real_name` is null/empty (legacy users); the Mini App shows a one-time prompt. The name itself is never returned.
 - `challengeStatus`: `"not_started" | "active" | "ended"`
 
 **PUT /api/day-override** — body `{ date: string, met: boolean }`
@@ -113,13 +115,15 @@ Unauthenticated:
 - `reminderTime`: effective `HH:mm` in challenge `TIMEZONE` (`users.reminder_time` if set, else global `REMINDER_TIME`)
 → `403 { success: false, error: "not_registered" }`
 
-**PATCH /api/profile** — body (all fields optional; at least one required): `{ nickname?, dailyGoal?, reminderEnabled?, reminderTime? }`
-- Same nickname / daily-goal rules as register
+**PATCH /api/profile** — body (all fields optional; at least one required): `{ nickname?, dailyGoal?, reminderEnabled?, reminderTime?, realName? }`
+- Same nickname / daily-goal / real-name rules as register
+- `realName` is write-only (used by the one-time completion prompt); GET/PATCH responses never include it
+- Nickname and real name must differ case-insensitively (new or existing values)
 - `reminderEnabled`: boolean
 - `reminderTime`: `HH:mm` (24h), or `null` to clear override and use global `REMINDER_TIME`
 - Rate limit: 5 requests/minute/user
 → `200` same shape as GET
-→ `400 { success: false, error: "invalid_body" | "invalid_nickname" | "invalid_goal" | "invalid_reminder_enabled" | "invalid_reminder_time" }`
+→ `400 { success: false, error: "invalid_body" | "invalid_nickname" | "invalid_goal" | "invalid_real_name" | "nickname_matches_real_name" | "invalid_reminder_enabled" | "invalid_reminder_time" }`
 → `403 { success: false, error: "not_registered" }`
 → `409 { success: false, error: "nickname_taken" }`
 → `429 { success: false, error: "rate_limited" }`
@@ -142,7 +146,7 @@ Unauthenticated:
 The following Mini App admin routes require authenticated Telegram id to match `ADMIN_TELEGRAM_ID`:
 
 - **GET /api/admin/stats** → `{ participantCount, mawlidStartDate, mawlidEndDate }`
-- **GET /api/admin/leaderboard?period=all|mawlid** → live ranked totals for all logs or only the configured Mawlid period
+- **GET /api/admin/leaderboard?period=all|mawlid** → live ranked totals `{ rank, nickname, realName, total }` for all logs or only the configured Mawlid period
 - **GET /api/admin/export-csv?period=all|mawlid** → authenticated CSV download for the selected result period
 - **POST /api/admin/broadcast** — JSON:
   - `{ type: "text", message }` supports non-nested `**bold**`, `*italic*`, `_italic_`
@@ -152,7 +156,7 @@ The following Mini App admin routes require authenticated Telegram id to match `
 
 Broadcast responses are `{ success, participantCount, sentCount, failedCount }`. Sends are sequential and error-tolerant: one failed DM does not stop later recipients. A concurrent request returns `409 broadcast_in_progress`.
 
-**GET /api/admin/export?key=…&period=all|mawlid** (or header `X-Admin-Key`) — CSV of `rank,nickname,telegram_id,telegram_username,telegram_first_name,telegram_last_name,total,daily_goal`; defaults to all-time
+**GET /api/admin/export?key=…&period=all|mawlid** (or header `X-Admin-Key`) — CSV of `rank,nickname,real_name,telegram_id,telegram_username,telegram_first_name,telegram_last_name,total,daily_goal`; defaults to all-time
 - Requires `ADMIN_EXPORT_SECRET`; otherwise `503 export_disabled`
 - Telegram profile name fields are stored from `initData.user` at registration and refreshed on later authenticated requests; existing users stay null until they open the app again
 → `401 unauthorized` if key wrong

@@ -34,6 +34,7 @@ function user(id: number): User {
     telegram_username: null,
     telegram_first_name: null,
     telegram_last_name: null,
+    real_name: null,
     retained_jamaat_total: 0,
     progress_started_at: null,
     created_at: "2026-08-01 00:00:00",

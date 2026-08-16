@@ -9,6 +9,7 @@ import {
 } from "../../config.js";
 import { allowRequest } from "../rateLimit.js";
 import { getUserByTelegramId, isNicknameTaken, updateUserProfile } from "../../db/repository.js";
+import { nicknameMatchesRealName, parseRealName } from "../realName.js";
 import type { User } from "../../types.js";
 
 function effectiveReminderTime(user: User): string {
@@ -42,8 +43,9 @@ export function patchProfileRoute(req: Request, res: Response) {
   const hasDailyGoal = Object.prototype.hasOwnProperty.call(body, "dailyGoal");
   const hasReminderEnabled = Object.prototype.hasOwnProperty.call(body, "reminderEnabled");
   const hasReminderTime = Object.prototype.hasOwnProperty.call(body, "reminderTime");
+  const hasRealName = Object.prototype.hasOwnProperty.call(body, "realName");
 
-  if (!hasNickname && !hasDailyGoal && !hasReminderEnabled && !hasReminderTime) {
+  if (!hasNickname && !hasDailyGoal && !hasReminderEnabled && !hasReminderTime && !hasRealName) {
     res.status(400).json({ success: false, error: "invalid_body" });
     return;
   }
@@ -103,11 +105,29 @@ export function patchProfileRoute(req: Request, res: Response) {
     }
   }
 
+  let realName: string | undefined;
+  if (hasRealName) {
+    const parsedRealName = parseRealName(body.realName);
+    if (!parsedRealName) {
+      res.status(400).json({ success: false, error: "invalid_real_name" });
+      return;
+    }
+    realName = parsedRealName;
+  }
+
+  const effectiveNickname = nickname ?? user.nickname;
+  const effectiveRealName = realName ?? user.real_name;
+  if (effectiveRealName && nicknameMatchesRealName(effectiveNickname, effectiveRealName)) {
+    res.status(400).json({ success: false, error: "nickname_matches_real_name" });
+    return;
+  }
+
   const updated = updateUserProfile(req.telegramId, {
     nickname,
     goal: dailyGoal,
     reminderEnabled,
     reminderTime,
+    realName,
   });
 
   res.json(profileResponse(updated));

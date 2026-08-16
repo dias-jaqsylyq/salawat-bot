@@ -34,14 +34,16 @@ export function createUser(
     telegramUsername: null,
     telegramFirstName: null,
     telegramLastName: null,
-  }
+  },
+  realName: string | null = null
 ): User {
   const result = db
     .prepare(
       `INSERT INTO users (
          telegram_id, nickname, goal,
-         telegram_username, telegram_first_name, telegram_last_name
-       ) VALUES (?, ?, ?, ?, ?, ?)`
+         telegram_username, telegram_first_name, telegram_last_name,
+         real_name
+       ) VALUES (?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       telegramId,
@@ -49,7 +51,8 @@ export function createUser(
       goal,
       profile.telegramUsername,
       profile.telegramFirstName,
-      profile.telegramLastName
+      profile.telegramLastName,
+      realName
     );
   return getUserByTelegramId(telegramId) ?? (() => {
     throw new Error(`Failed to load user just created (rowid ${result.lastInsertRowid})`);
@@ -151,6 +154,7 @@ export function getLeaderboard(window?: LogWindow): LeaderboardRow[] {
   return db
     .prepare(
       `SELECT u.nickname AS nickname,
+              u.real_name AS real_name,
               u.telegram_id AS telegram_id,
               COALESCE(SUM(l.count), 0) AS total
        FROM users u
@@ -205,6 +209,7 @@ export interface UserProfileUpdate {
   reminderEnabled?: boolean;
   /** HH:mm override, or null to clear back to global default. */
   reminderTime?: string | null;
+  realName?: string;
 }
 
 export function updateUserProfile(telegramId: number, update: UserProfileUpdate): User {
@@ -219,12 +224,13 @@ export function updateUserProfile(telegramId: number, update: UserProfileUpdate)
     update.reminderEnabled !== undefined ? (update.reminderEnabled ? 1 : 0) : user.reminder_enabled;
   const reminderTime =
     update.reminderTime !== undefined ? update.reminderTime : user.reminder_time;
+  const realName = update.realName !== undefined ? update.realName : user.real_name;
 
   db.prepare(
     `UPDATE users
-     SET nickname = ?, goal = ?, reminder_enabled = ?, reminder_time = ?
+     SET nickname = ?, goal = ?, reminder_enabled = ?, reminder_time = ?, real_name = ?
      WHERE telegram_id = ?`
-  ).run(nickname, goal, reminderEnabled, reminderTime, telegramId);
+  ).run(nickname, goal, reminderEnabled, reminderTime, realName, telegramId);
 
   return getUserByTelegramId(telegramId) ?? (() => {
     throw new Error(`Failed to reload user ${telegramId} after profile update`);
@@ -299,6 +305,7 @@ export function getExportRows(window?: LogWindow): ExportRow[] {
   return db
     .prepare(
       `SELECT u.nickname AS nickname,
+              u.real_name AS real_name,
               u.telegram_id AS telegram_id,
               u.telegram_username AS telegram_username,
               u.telegram_first_name AS telegram_first_name,

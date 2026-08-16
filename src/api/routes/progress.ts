@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { config } from "../../config.js";
 import { getUserByTelegramId } from "../../db/repository.js";
 import { formatDateParts, getChallengeStatus } from "../../utils/challenge.js";
+import { userNeedsRealName } from "../realName.js";
 import { computeUserProgressFields } from "./progressFields.js";
 
 function challengeMeta() {
@@ -30,6 +31,7 @@ export function progressRoute(req: Request, res: Response) {
     streak: fields.streak,
     last7Days: fields.last7Days,
     daysLeft: fields.daysLeft,
+    needsRealName: userNeedsRealName(user.real_name),
     ...challengeMeta(),
   });
 }

@@ -11,6 +11,8 @@ export interface User {
   telegram_username: string | null;
   telegram_first_name: string | null;
   telegram_last_name: string | null;
+  /** User-typed legal name. Admin-only; never returned from public APIs. */
+  real_name: string | null;
   /** Prior net logs retained only in the unfiltered Jamaat total after a soft reset. */
   retained_jamaat_total: number;
   /** Current personal-progress epoch; null means original registration time. */
@@ -34,12 +36,14 @@ export interface LogEntry {
 
 export interface LeaderboardRow {
   nickname: string;
+  real_name: string | null;
   total: number;
   telegram_id: number;
 }
 
 export interface ExportRow {
   nickname: string;
+  real_name: string | null;
   telegram_id: number;
   telegram_username: string | null;
   telegram_first_name: string | null;

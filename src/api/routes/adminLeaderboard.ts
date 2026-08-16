@@ -20,7 +20,7 @@ export function adminLeaderboardRoute(req: Request, res: Response): void {
     if (index > 0 && row.total < rows[index - 1]!.total) {
       rank = index + 1;
     }
-    return { rank, nickname: row.nickname, total: row.total };
+    return { rank, nickname: row.nickname, realName: row.real_name ?? null, total: row.total };
   });
 
   res.json({

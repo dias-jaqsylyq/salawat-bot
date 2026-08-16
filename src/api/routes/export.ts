@@ -62,10 +62,10 @@ export function buildExportCsv(period: LeaderboardPeriod): string {
   });
 
   const lines = [
-    "rank,nickname,telegram_id,telegram_username,telegram_first_name,telegram_last_name,total,daily_goal",
+    "rank,nickname,real_name,telegram_id,telegram_username,telegram_first_name,telegram_last_name,total,daily_goal",
     ...ranked.map(
       (r) =>
-        `${r.rank},${csvEscape(r.nickname)},${r.telegram_id},${csvEscape(r.telegram_username ?? "")},${csvEscape(r.telegram_first_name ?? "")},${csvEscape(r.telegram_last_name ?? "")},${r.total},${r.goal}`
+        `${r.rank},${csvEscape(r.nickname)},${csvEscape(r.real_name ?? "")},${r.telegram_id},${csvEscape(r.telegram_username ?? "")},${csvEscape(r.telegram_first_name ?? "")},${csvEscape(r.telegram_last_name ?? "")},${r.total},${r.goal}`
     ),
   ];
 

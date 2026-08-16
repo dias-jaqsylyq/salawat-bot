@@ -42,7 +42,7 @@ it("registers and logs after informational end", () => {
         telegramFirstName: "After",
         telegramLastName: "Window",
       },
-      body: { nickname: "After Window", goal: 100 },
+      body: { nickname: "After Window", realName: "After Window User", goal: 100 },
     } as Request,
     registration.res
   );

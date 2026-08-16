@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
   telegram_username TEXT,
   telegram_first_name TEXT,
   telegram_last_name TEXT,
+  real_name TEXT,
   retained_jamaat_total INTEGER NOT NULL DEFAULT 0,
   progress_started_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))

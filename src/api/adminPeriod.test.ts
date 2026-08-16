@@ -78,7 +78,7 @@ it("separates all-time and inclusive Mawlid results/exports", () => {
   );
 
   const csv = buildExportCsv("mawlid");
-  assert.match(csv, /^rank,nickname,/);
+  assert.match(csv, /^rank,nickname,real_name,/);
   assert.match(csv, /\n1,Alpha,/);
   assert.match(csv, /\n1,Beta,/);
   assert.match(csv, /\n3,Gamma,/);

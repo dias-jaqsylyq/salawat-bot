@@ -35,5 +35,6 @@ ensureUserColumn("reminder_time", "TEXT");
 ensureUserColumn("telegram_username", "TEXT");
 ensureUserColumn("telegram_first_name", "TEXT");
 ensureUserColumn("telegram_last_name", "TEXT");
+ensureUserColumn("real_name", "TEXT");
 ensureUserColumn("retained_jamaat_total", "INTEGER NOT NULL DEFAULT 0");
 ensureUserColumn("progress_started_at", "TEXT");
